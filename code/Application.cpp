@@ -50,6 +50,7 @@ namespace Walnut {
 	{
 		s_Instance = this;
 
+		m_ConsoleHeight = 528;
 		Init();
 	}
 
@@ -196,8 +197,8 @@ namespace Walnut {
 					ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
 
 					const ImGuiViewport* viewport = ImGui::GetMainViewport();
-					ImGui::SetNextWindowPos( { 0, 0 } );
-					ImGui::SetNextWindowSize( { viewport->WorkSize.x / 2, viewport->WorkSize.y } );
+					ImGui::SetNextWindowPos( { 0, 24 } );
+//					ImGui::SetNextWindowSize( { viewport->WorkSize.x / 2, viewport->WorkSize.y } );
 					ImGui::SetNextWindowViewport( viewport->ID );
 					ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 					ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
@@ -218,12 +219,10 @@ namespace Walnut {
 					ImGui::Begin("DockSpace Demo", nullptr, window_flags);
 					m_DockspaceWidth = ImGui::GetWindowSize().x;
 					ImGui::PopStyleVar();
-
-					ImGui::SetWindowSize( { 1980 / 2, 1080 } );
 					
 					ImVec2 size = ImGui::GetWindowSize();
-					if ( size.x >= m_Specification.Width * 0.5f ) {
-						size.x = m_Specification.Width * 0.5f;
+					if ( size.x >= viewport->WorkSize.x * 0.75f ) {
+						size.x = viewport->WorkSize.x * 0.75f;
 					}
 
 					ImGui::PopStyleVar( 2 );

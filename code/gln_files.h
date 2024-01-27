@@ -120,6 +120,16 @@ typedef struct {
 #define LUMP_SPRITES 6
 #define NUMLUMPS 7
 
+#define TILETYPE_CHECKPOINT       0x0001
+#define TILETYPE_SPAWN            0x0002
+#define TILETYPE_NORMAL           0x0004
+#define TILETYPE_BITS             0x000f
+
+#define SURFACEPARM_NODLIGHT      0x0010
+#define SURFACEPARM_METAL         0x0020
+#define SURFACEPARM_LIQUID        0x0040
+#define SURFACEPARM_BITS          0x00f0
+
 typedef enum {
     light_point = 0,
     light_spotlight,

@@ -5,6 +5,8 @@
 mapData_t *mapData;
 std::unordered_map<std::string, mapData_t> g_MapCache;
 static const char *unnamed_map = "unnamed.map";
+static tile2d_sprite_t *s_pSpritePOD;
+static maptile_t *s_pTilePOD;
 
 typedef enum {
     CHUNK_CHECKPOINT,
@@ -487,10 +489,10 @@ static void Map_ArchiveCheckpoints( IDataStream *out )
 
     for ( i = 0; i < mapData->numCheckpoints; i++ ) {
         sprintf( buf,
-            "{\n"
-            "\tclassname \"map_checkpoint\"\n"
-            "\tpos %i %i %i\n"
-            "}\n"
+            "\t{\n"
+            "\t\tclassname \"map_checkpoint\"\n"
+            "\t\tpos %i %i %i\n"
+            "\t}\n"
         , mapData->checkpoints[i].xyz[0], mapData->checkpoints[i].xyz[1], mapData->checkpoints[i].xyz[2] );
         
         out->Write( buf, strlen( buf ) );
@@ -504,12 +506,12 @@ static void Map_ArchiveSpawns( IDataStream *out )
 
     for ( i = 0; i < mapData->numSpawns; i++ ) {
         sprintf( buf,
-            "{\n"
-            "\tclassname \"map_spawn\"\n"
-            "\tpos %i %i %i\n"
-            "\tid %i\n"
-            "\tentity %i\n"
-            "}\n"
+            "\t{\n"
+            "\t\tclassname \"map_spawn\"\n"
+            "\t\tpos %i %i %i\n"
+            "\t\tid %i\n"
+            "\t\tentity %i\n"
+            "\t}\n"
         , mapData->spawns[i].xyz[0], mapData->spawns[i].xyz[1], mapData->spawns[i].xyz[2], mapData->spawns[i].entityid, mapData->spawns[i].entitytype );
         
         out->Write( buf, strlen( buf ) );
@@ -524,11 +526,11 @@ static void Map_ArchiveTiles( IDataStream *out )
 
     for ( i = 0; mapData->tileset.numTiles; i++ ) {
         sprintf( buf,
-            "{\n"
-            "\tclassname \"texcoords\"\n"
-            "\tindex %i\n"
-            "\tcoords ( ( %f %f ) ( %f %f ) ( %f %f ) ( %f %f ) )\n"
-            "}\n"
+            "\t{\n"
+            "\t\tclassname \"texcoords\"\n"
+            "\t\tindex %i\n"
+            "\t\tcoords ( ( %f %f ) ( %f %f ) ( %f %f ) ( %f %f ) )\n"
+            "\t}\n"
         , mapData->texcoords[i].index,
             mapData->texcoords[i].uv[0][0], mapData->texcoords[i].uv[0][1],
             mapData->texcoords[i].uv[1][0], mapData->texcoords[i].uv[1][1],
@@ -541,11 +543,11 @@ static void Map_ArchiveTiles( IDataStream *out )
     for ( y = 0; y < mapData->height; y++ ) {
         for ( x = 0; x < mapData->width; x++ ) {
             sprintf( buf,
-                "{\n"
-                "\tclassname \"map_tile\"\n"
-                "\tpos %i %i %i\n"
-                "\ttexIndex %i\n"
-                "}\n"
+                "\t{\n"
+                "\t\tclassname \"map_tile\"\n"
+                "\t\tpos %i %i %i\n"
+                "\t\ttexIndex %i\n"
+                "\t}\n"
             , y, x, 0, mapData->tiles[y * mapData->width + x].index );
 
             out->Write( buf, strlen( buf ) );
@@ -571,7 +573,6 @@ void Map_Save( void )
 
         sprintf( buf,
             "{\n"
-            "\tclassname \"mapdata\"\n"
             "\tmap_name \"%s\"\n"
             "\twidth %i\n"
             "\theight %i\n"
@@ -581,12 +582,12 @@ void Map_Save( void )
         out.Write( buf, strlen( buf ) );
 
         sprintf( buf,
-            "{\n"
-            "\tclassname \"tilesetdata\"\n"
-            "\tshader %s\n"
-            "\ttileWidth %i\n"
-            "\ttileHeight %i\n"
-            "}\n"
+            "\t{\n"
+            "\t\tclassname \"tilesetdata\"\n"
+            "\t\tshader \"%s\"\n"
+            "\t\ttileWidth %i\n"
+            "\t\ttileHeight %i\n"
+            "\t}\n"
         , mapData->tileset.texture, mapData->tileset.tileWidth, mapData->tileset.tileHeight );
 
         out.Write( buf, strlen( buf ) );
@@ -613,10 +614,6 @@ void Map_Save( void )
 
 void Map_New( void )
 {
-    if ( mapData && mapData->name[0] ) {
-        g_pEditor->m_RecentFiles.emplace_back( va( "%s%cmaps/%s", g_pProjectManager->GetProject()->m_AssetDirectory.c_str(), PATH_SEP, mapData->name ) );
-    }
-
     Map_Free();
 
     if ( g_MapCache.find( "untitled" ) != g_MapCache.end() ) {
@@ -631,8 +628,14 @@ void Map_New( void )
     mapData->width = 64;
     mapData->height = 64;
 
-    mapData->tiles = (maptile_t *)GetMemory( sizeof(maptile_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
-    mapData->texcoords = (tile2d_sprite_t *)GetMemory( sizeof(tile2d_sprite_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
+    if ( !s_pTilePOD ) {
+        s_pTilePOD = (maptile_t *)GetMemory( sizeof(maptile_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
+    }
+    if ( !s_pSpritePOD ) {
+        s_pSpritePOD = (tile2d_sprite_t *)GetMemory( sizeof(tile2d_sprite_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
+    }
+    mapData->tiles = s_pTilePOD;
+    mapData->texcoords = s_pSpritePOD;
 
     for ( uint32_t y = 0; y < MAX_MAP_HEIGHT; y++ ) {
         for ( uint32_t x = 0; x < MAX_MAP_WIDTH; x++ ) {
@@ -644,11 +647,22 @@ void Map_New( void )
         }
     }
 
+    mapData->ambientColor[0] = 0.0f;
+    mapData->ambientColor[1] = 0.0f;
+    mapData->ambientColor[2] = 0.0f;
+
     g_pEditor->m_nOldMapHeight = mapData->height;
     g_pEditor->m_nOldMapWidth = mapData->width;
 
+    if ( g_pMapInfoDlg ) {
+        g_pMapInfoDlg->SetCurrent( mapData );
+    }
+
     strcpy( mapData->name, unnamed_map );
-    Sys_SetWindowTitle( mapData->name );
+
+    if ( g_pApplication ) {
+        Sys_SetWindowTitle( mapData->name );
+    }
 }
 
 void Map_Free( void )
@@ -657,22 +671,53 @@ void Map_Free( void )
     if ( !mapData || !g_ApplicationRunning ) {
         return;
     }
-
-    if ( mapData->tiles ) {
-        FreeMemory( mapData->tiles );
-        mapData->tiles = NULL;
-    }
-    if ( mapData->texcoords ) {
-        FreeMemory( mapData->texcoords );
-        mapData->texcoords = NULL;
-    }
-    FreeMemory( mapData );
+    memset( mapData->tiles, 0, sizeof(*mapData->tiles) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
+    memset( mapData->texcoords, 0, sizeof(*mapData->texcoords) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
     mapData = NULL;
 }
 
 void Map_ImportFile( const char *filename )
 {
     Map_LoadFile( filename );
+}
+
+static void Map_GenerateShader( void )
+{
+    char buf[1024];
+    char tmp[MAX_NPATH];
+    FileStream file;
+    std::string path;
+
+    path = g_pProjectManager->GetProject()->m_FilePath + g_pProjectManager->GetProject()->m_AssetPath + va( "%cscripts%c%s", PATH_SEP, PATH_SEP, mapData->name );
+
+    if ( !file.Open( path.c_str(), "w" ) ) {
+        Error( "Failed to create shader file '%s'", path.c_str() );
+    }
+
+    COM_StripExtension( mapData->textures[Walnut::TB_DIFFUSEMAP]->GetName().c_str(), tmp, sizeof(tmp) );
+
+    snprintf( buf, sizeof(buf),
+        "%s {\n"
+        "\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA\n"
+        "\trgbGen vertex\n"
+    , tmp );
+
+    file.Write( buf, strlen( buf ) );
+
+    //
+//    // diffuse stage
+//    //
+//    snprintf( buf, sizeof(buf),
+//        "\t{\n"
+//        "\t\tstage diffuseMap\n"
+//        "\t\tspecularReflectance %f\n"
+//        "\t\tgloss %f\n"
+//        "\t\troughness %f\n"
+//        "\t\tnormalScale %f %f\n"
+//        "\t\tspecularScale %f %f %f %f\n"
+//        "\t}\n");
+
+    file.Close();
 }
 
 void Map_BuildTileset( void )
@@ -684,11 +729,21 @@ void Map_BuildTileset( void )
         g_pMapInfoDlg->m_bTilesetModified = true;
         return;
     }
+    if ( !mapData->tileset.tileWidth ) {
+        Sys_MessageBox( "Tileset Error", "Invalid tile width", MB_OK );
+        g_pMapInfoDlg->m_bTilesetModified = true;
+        return;
+    }
+    if ( !mapData->tileset.tileHeight ) {
+        Sys_MessageBox( "Tileset Error", "Invalid tile height", MB_OK );
+        g_pMapInfoDlg->m_bTilesetModified = true;
+        return;
+    }
 
     const uint32_t tileCountX = mapData->textures[Walnut::TB_DIFFUSEMAP]->GetWidth() / mapData->tileset.tileWidth;
     const uint32_t tileCountY = mapData->textures[Walnut::TB_DIFFUSEMAP]->GetHeight() / mapData->tileset.tileHeight;
 
-    auto genCoords = [&](const glm::vec2& sheetDims, const glm::vec2& spriteDims, const glm::vec2& coords, float texcoords[4][2]) {
+    auto genCoords = [&](const glm::vec2& sheetDims, const glm::vec2& spriteDims, const glm::vec2& coords, vec2_t texcoords[4]) {
         const glm::vec2 min = { ( ( coords.x + 1 ) * spriteDims.x ) / sheetDims.x, ( ( coords.y + 1 ) * spriteDims.y ) / sheetDims.y };
         const glm::vec2 max = { ( coords.x * spriteDims.x ) / sheetDims.x, ( coords.y * spriteDims.y ) / sheetDims.y };
 

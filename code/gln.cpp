@@ -1396,6 +1396,10 @@ void QE_ConvertDOSToUnixName( char *dst, const char *src )
 	*dst = 0;
 }
 
+void *CopyMemory( const void *src, int nBytes ) {
+	return memcpy( GetMemory( nBytes ), src, nBytes );
+}
+
 /*
 ===============================================================
 

@@ -309,10 +309,10 @@ int valdenMain( int argc, char **argv )
 		Sys_LogFile();
 	}
 
-    g_pApplication = Walnut::CreateApplication( argc, argv );
-
 	myargc = argc;
 	myargv = argv;
+
+	g_pApplication = Walnut::CreateApplication( argc, argv );
 
 	// if the first parameter is a .map, load that
 	if ( argc > 1 && IsMap( argv[1] ) ) {
@@ -331,6 +331,8 @@ int valdenMain( int argc, char **argv )
 
     // remove pid file
     remove( g_pidFile.c_str() );
+
+	Sys_SetWindowTitle( mapData->name );
 
 	g_ApplicationRunning = true;
 	g_pApplication->Run();

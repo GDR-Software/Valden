@@ -29,9 +29,7 @@ public:
     virtual void OnActivate( void ) override;
 
     int m_nSelected;
-
-    std::array<std::vector<entityInfo_t>, NUMENTITYTYPES> m_EntityLists;
-
+    
     // engine executable name
     std::string m_Engine;
 

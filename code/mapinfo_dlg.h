@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "shader.h"
 #include "editor.h"
 
 struct MapSelection
@@ -28,14 +29,19 @@ public:
     bool m_bShow;
     bool m_bHasSpawnWindow;
     bool m_bHasCheckpointWindow;
+    bool m_bHasLightWindow;
     bool m_bMapModified;
     bool m_bTilesetModified;
     bool m_bMapNameUpdated;
 
     mapspawn_t *m_pSpawnEdit;
     mapcheckpoint_t *m_pCheckpointEdit;
+    maplight_t *m_pLightEdit;
 private:
     std::vector<MapSelection> m_MapList;
+    std::vector<MapSelection>::iterator m_pCurrentMap;
+    char m_szTempMapName[MAX_NPATH+2];
+    char m_szCurrentShader[MAX_NPATH];
     
     uint32_t m_nSelectedSpawnEntityType;
     uint32_t m_nSelectedSpawnEntityId;

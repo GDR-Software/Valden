@@ -45,6 +45,10 @@ public:
     Vertex *m_pVertices;
     uint32_t *m_pIndices;
 
+    int m_nTileSelectX;
+    int m_nTileSelectY;
+    bool m_bTileSelectOn;
+
     char m_szInputBuf[4096];
 
     uint32_t m_nWindowWidth;
@@ -64,6 +68,13 @@ public:
     GLuint m_VertexArray;
     GLuint m_VertexBuffer;
     GLuint m_IndexBuffer;
+
+    GLuint m_FrameBuffer;
+    GLuint m_NormalBuffer;
+    GLuint m_SpecularBuffer;
+    GLuint m_PositionBuffer;
+    GLuint m_ColorBuffer;
+    GLuint m_DepthBuffer;
 
     static inline std::vector<char> g_CommandConsoleString;
 };

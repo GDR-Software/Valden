@@ -302,12 +302,12 @@ static void KeyDownEvent(uint32_t key)
 
 	// console key is hardcoded, so the user can never unbind it
 	if (key == KEY_CONSOLE || (keys[KEY_SHIFT].down && key == KEY_ESCAPE)) {
-		g_pEditor->m_bShowImGuiDebugConsole = !g_pEditor->m_bShowImGuiDebugConsole;
+		g_pEditor->m_bShowConsole = !g_pEditor->m_bShowConsole;
 		return;
 	}
 
 	// only let the console process the event if its open
-	if (g_pEditor->m_bShowImGuiDebugConsole) {
+	if (g_pEditor->m_bShowConsole) {
 		keys[key].down = false;
 		keys[key].repeats--;
 		return;
@@ -389,19 +389,6 @@ void CEventQueue::PumpKeyEvents(void)
 		case SDL_MOUSEBUTTONUP:
 			switch ( event.button.button ) {
 			case SDL_BUTTON_LEFT:
-				QueueEvent( SE_KEY, KEY_MOUSE_LEFT, qtrue, 0, NULL );
-				break;
-			case SDL_BUTTON_MIDDLE:
-				QueueEvent( SE_KEY, KEY_MOUSE_MIDDLE, qtrue, 0, NULL );
-				break;
-			case SDL_BUTTON_RIGHT:
-				QueueEvent( SE_KEY, KEY_MOUSE_RIGHT, qtrue, 0, NULL );
-				break;
-			};
-            break;
-		case SDL_MOUSEBUTTONDOWN:
-            switch ( event.button.button ) {
-			case SDL_BUTTON_LEFT:
 				QueueEvent( SE_KEY, KEY_MOUSE_LEFT, qfalse, 0, NULL );
 				break;
 			case SDL_BUTTON_MIDDLE:
@@ -409,6 +396,19 @@ void CEventQueue::PumpKeyEvents(void)
 				break;
 			case SDL_BUTTON_RIGHT:
 				QueueEvent( SE_KEY, KEY_MOUSE_RIGHT, qfalse, 0, NULL );
+				break;
+			};
+            break;
+		case SDL_MOUSEBUTTONDOWN:
+            switch ( event.button.button ) {
+			case SDL_BUTTON_LEFT:
+				QueueEvent( SE_KEY, KEY_MOUSE_LEFT, qtrue, 0, NULL );
+				break;
+			case SDL_BUTTON_MIDDLE:
+				QueueEvent( SE_KEY, KEY_MOUSE_MIDDLE, qtrue, 0, NULL );
+				break;
+			case SDL_BUTTON_RIGHT:
+				QueueEvent( SE_KEY, KEY_MOUSE_RIGHT, qtrue, 0, NULL );
 				break;
 			};
             break;
@@ -526,7 +526,7 @@ uint64_t CEventQueue::EventLoop(void)
 //			MouseEvent(ev.evValue, ev.evValue2);
 			break;
 		case SE_CONSOLE:
-			g_pEditor->m_bShowImGuiDebugConsole = !g_pEditor->m_bShowImGuiDebugConsole;
+			g_pEditor->m_bShowConsole = !g_pEditor->m_bShowConsole;
 			break;
 		default:
 			Error("Com_EventLoop: bad event type %i", ev.evType);

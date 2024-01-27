@@ -63,6 +63,8 @@ inline constexpr ImVec2 FileDlgWindowSize = ImVec2( 1012, 641 );
     if ( ImGuiFileDialog::Instance()->IsOpened( key ) ) { \
         if ( ImGuiFileDialog::Instance()->Display( key, ImGuiWindowFlags_NoResize, FileDlgWindowSize, FileDlgWindowSize ) ) { \
             if ( ImGuiFileDialog::Instance()->IsOk() ) { \
+                g_pEditor->m_RecentDirectory = ImGuiFileDialog::Instance()->GetFilePathName(); \
+                while ( g_pEditor->m_RecentDirectory.back() != PATH_SEP ) { g_pEditor->m_RecentDirectory.pop_back(); } \
                 fn( ImGuiFileDialog::Instance()->GetFilePathName() ); \
             } \
             ImGuiFileDialog::Instance()->Close(); \
@@ -136,14 +138,23 @@ public:
 
     std::vector<std::string> m_RecentFiles;
 
+    std::vector<entityInfo_t>::iterator m_pCurrentMob;
+    std::vector<entityInfo_t>::iterator m_pCurrentItem;
+    std::vector<entityInfo_t>::iterator m_pCurrentWeapon;
+    std::vector<entityInfo_t>::iterator m_pCurrentBot;
     std::vector<TextEditor>::iterator m_pCurrentEditor;
     std::vector<TextEditor> m_TextEditors;
     std::vector<CEditorDialog *> m_Dialogs;
 
-    char m_szTempMapName[MAX_NPATH+2];
+    std::string m_RecentDirectory;
+
+    void *m_pCopyPasteData;
 
     bool m_bWindowFocused;
     EditorInputFocus m_InputFocus;
+
+    char m_szAddMobName[MAX_NPATH+1];
+    uint32_t m_nAddMobId;
 };
 
 extern Walnut::Application *g_pApplication;;

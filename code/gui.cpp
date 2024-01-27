@@ -11,16 +11,15 @@ std::shared_ptr<CMapRenderer> g_pMapDrawer;
 static const char *mapdraw_vert_shader =
 "#version 330 core\n"
 "\n"
-"layout( location = 0 ) in vec3 a_Color;\n"
+"layout( location = 0 ) in vec4 a_Color;\n"
 "layout( location = 1 ) in vec3 a_Position;\n"
 "layout( location = 2 ) in vec3 a_WorldPos;\n"
 "layout( location = 3 ) in vec2 a_TexCoords;\n"
-"layout( location = 4 ) in float a_Alpha;\n"
 "\n"
 "out vec3 v_Position;\n"
 "out vec3 v_WorldPos;\n"
 "out vec2 v_TexCoords;\n"
-"out vec3 v_Color;\n"
+"out vec4 v_Color;\n"
 "\n"
 "uniform mat4 u_ModelViewProjection;\n"
 "\n"
@@ -43,14 +42,79 @@ static const char *mapdraw_frag_shader =
 "in vec4 v_Color;\n"
 "\n"
 "uniform sampler2D u_DiffuseMap;\n"
-//"uniform sampler2D u_SpecularMap;\n"
-//"uniform sampler2D u_NormalMap;\n"
+"uniform sampler2D u_SpecularMap;\n"
+"uniform sampler2D u_NormalMap;\n"
+"uniform sampler2D u_AmbientOcclusionMap;\n"
 "\n"
-//"uniform vec4 u_TexUsage;\n"
+"struct Light {\n"
+"   vec3 position;\n"
+"   vec3 ambient;\n"
+"   float range;\n"
+"};\n"
+"#define MAX_LIGHTS 256\n"
+"uniform Light u_LightData[MAX_LIGHTS];\n"
+"uniform int u_NumLights;\n"
+"uniform vec3 u_AmbientLightColor;\n"
+"\n"
+"uniform bool u_FramebufferActive;\n"
+"\n"
+"uniform bool u_UseDiffuseMapping;\n"
+"uniform bool u_UseSpecularMapping;\n"
+"uniform bool u_UseNormalMapping;\n"
+"uniform bool u_UseAmbientOcclusionMapping;\n"
+"uniform bool u_TileSelected;\n"
+"uniform int u_TileSelectionX;\n"
+"uniform int u_TileSelectionY;\n"
+"\n"
+"uniform vec4 u_TexUsage;\n"
+"\n"
+"void CalcNormal() {\n"
+"   vec3 normal = texture( u_NormalMap, v_TexCoords ).rgb;\n"
+"   normal = normalize( normal * 2.0 - 1.0 );\n"
+"   a_Color.rgb *= normal * 0.5 + 0.5;\n"
+"}\n"
+"\n"
+"void CalcLighting() {\n"
+"   a_Color = vec4( 0.0, 0.0, 0.0, 1.0 );\n"
+"   if ( u_UseNormalMapping ) {\n"
+"       CalcNormal();\n"
+"   }\n"
+"   if ( u_UseSpecularMapping ) {\n"
+"       a_Color.rgb += texture( u_SpecularMap, v_TexCoords ).rgb;\n"
+"   }\n"
+"   if ( u_NumLights == 0 && u_UseDiffuseMapping ) {\n"
+"       a_Color.rgb += texture( u_DiffuseMap, v_TexCoords ).rgb;\n"
+"   }\n"
+"   for ( int i = 0; i < u_NumLights; i++ ) {\n"
+"       a_Color.rgb += u_LightData[i].ambient;\n"
+"\n"
+"       vec3 diffuse = a_Color.rgb;\n"
+"       float dist = distance( v_WorldPos, u_LightData[i].position );\n"
+"       float diff = 0.0;\n"
+"       if ( dist <= u_LightData[i].range ) {\n"
+"           diff = 1.0 - abs( dist / u_LightData[i].range );\n"
+"       }\n"
+"       diffuse = max( diff * diffuse, diffuse );\n"
+"       a_Color.rgb += diffuse;\n"
+"   }\n"
+"}\n"
 "\n"
 "void main() {\n"
-"   a_Color = texture( u_DiffuseMap, v_TexCoords );\n"
-"   a_Color.rgba = vec4( 0.0, 0.0, 0.0, 1.0 );\n"
+"   if ( u_FramebufferActive ) {\n"
+"       a_Color = texture( u_DiffuseMap, v_TexCoords );\n"
+"   }\n"
+"   else {\n"
+"       if ( !u_UseDiffuseMapping && !u_UseSpecularMapping && !u_UseNormalMapping && !u_UseAmbientOcclusionMapping ) {\n"
+"           a_Color = vec4( 1.0 );\n"
+"       }\n"
+"       else {\n"
+"           CalcLighting();\n"
+"       }\n"
+"       if ( u_TileSelected && u_TileSelectionX == v_WorldPos.x && u_TileSelectionY == v_WorldPos.y ) {\n"
+"           a_Color.rgb += v_Color.rgb;\n"
+"       }\n"
+"       a_Color.rgb *= u_AmbientLightColor;\n"
+"   }\n"
 "}\n";
 
 void CMapRenderer::OnUpdate( float timestep ) {
@@ -58,16 +122,56 @@ void CMapRenderer::OnUpdate( float timestep ) {
         return;
     }
 
-    if ( Key_IsDown( KEY_W ) ) {
+    if ( ImGui::IsKeyDown( ImGuiKey_Escape ) ) {
+        m_bTileSelectOn = false;
+    }
+    if ( ImGui::IsKeyDown( ImGuiKey_UpArrow ) ) {
+        m_nTileSelectY--;
+
+        if ( m_nTileSelectY < 0 ) {
+            m_nTileSelectY = mapData->height - 1;
+        }
+
+        m_bTileSelectOn = true;
+    }
+    if ( ImGui::IsKeyDown( ImGuiKey_DownArrow ) ) {
+        m_nTileSelectY++;
+
+        if ( m_nTileSelectY >= mapData->height ) {
+            m_nTileSelectY = 0;
+        }
+
+        m_bTileSelectOn = true;
+    }
+    if ( ImGui::IsKeyDown( ImGuiKey_LeftArrow ) ) {
+        m_nTileSelectX--;
+
+        if ( m_nTileSelectX < 0 ) {
+            m_nTileSelectX = mapData->width - 1;
+        }
+
+        m_bTileSelectOn = true;
+    }
+    if ( ImGui::IsKeyDown( ImGuiKey_RightArrow ) ) {
+        m_nTileSelectX++;
+
+        if ( m_nTileSelectX >= mapData->width ) {
+            m_nTileSelectX = 0;
+        }
+
+        m_bTileSelectOn = true;
+    }
+
+    if ( ImGui::IsKeyDown( ImGuiKey_W ) ) {
         m_CameraPos.y += g_pPrefsDlg->m_nCameraMoveSpeed;
     }
-    if ( Key_IsDown( KEY_A ) ) {
+    if ( ImGui::IsKeyDown( ImGuiKey_A ) ) {
         m_CameraPos.x -= g_pPrefsDlg->m_nCameraMoveSpeed;
     }
-    if ( Key_IsDown( KEY_S ) ) {
+    if ( ImGui::IsKeyDown( ImGuiKey_S ) ) {
         m_CameraPos.y -= g_pPrefsDlg->m_nCameraMoveSpeed;
     }
-    if ( Key_IsDown( KEY_D ) ) {
+    if ( ImGui::IsKeyDown( ImGuiKey_D ) ) {
         m_CameraPos.x += g_pPrefsDlg->m_nCameraMoveSpeed;
     }
     if ( Key_IsDown( KEY_WHEEL_DOWN ) ) {
@@ -76,6 +180,7 @@ void CMapRenderer::OnUpdate( float timestep ) {
     if ( Key_IsDown( KEY_WHEEL_UP ) ) {
         m_nCameraZoom -= 0.2f;
     }
+
     /*
 
     ImGuizmo::BeginFrame();
@@ -114,7 +219,7 @@ static void WorldToGL( const glm::vec2& pos, Vertex *vertices )
     const glm::mat4 model = glm::translate( glm::mat4( 1.0f ), glm::vec3( pos, 0.0f ) );
     const glm::mat4 mvp = g_pMapDrawer->m_ViewProjection * model;
 
-    constexpr glm::vec4 positions[] = {
+    const glm::vec4 positions[] = {
         {  0.5f,  0.5f, 0.0f, 1.0f },
         {  0.5f, -0.5f, 0.0f, 1.0f },
         { -0.5f, -0.5f, 0.0f, 1.0f },
@@ -122,7 +227,7 @@ static void WorldToGL( const glm::vec2& pos, Vertex *vertices )
     };
 
     for ( uint32_t i = 0; i < 4; i++ ) {
-        vertices[i].xyz = mvp * positions[i];
+        vertices[i].xyz = glm::vec3( mvp * positions[i] );
     }
 }
 
@@ -157,7 +262,7 @@ void CMapRenderer::DrawMap( void )
 {
     uint32_t y, x;
     uint32_t i;
-    uint32_t numVertices, numIndices;
+    float width;
     glm::vec2 pos;
     Vertex *vtx;
     const ImGuiViewport *view;
@@ -166,7 +271,7 @@ void CMapRenderer::DrawMap( void )
 //        return;
 //    }
 
-    m_Projection = glm::ortho( -3.0f, 3.0f, -3.0f, 3.0f, -1.0f, 1.0f );
+    m_Projection = glm::ortho( -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f );
     const glm::mat4 transpose = glm::translate( glm::mat4( 1.0f ), m_CameraPos )
                                 * glm::scale( glm::mat4( 1.0f ), glm::vec3( m_nCameraZoom ) )
                                 * glm::rotate( glm::mat4( 1.0f ), glm::radians( m_nCameraRotation ), glm::vec3( 0, 0, 1 ) );
@@ -176,7 +281,7 @@ void CMapRenderer::DrawMap( void )
     vtx = m_pVertices;
 
     view = ImGui::GetMainViewport();
-    glViewport( g_pApplication->m_DockspaceWidth, g_pApplication->m_ConsoleHeight );
+    glViewport( g_pApplication->m_DockspaceWidth, 24, view->WorkSize.x - g_pApplication->m_DockspaceWidth, view->WorkSize.y );
 
     glBindVertexArray( m_VertexArray );
     glBindBuffer( GL_ARRAY_BUFFER, m_VertexBuffer );
@@ -188,10 +293,20 @@ void CMapRenderer::DrawMap( void )
     glDisable( GL_STENCIL_TEST );
     glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
-    glUniform1i( GetUniform( "u_DiffuseMap" ), 0 );
+//    glBindFramebuffer( GL_FRAMEBUFFER, m_FrameBuffer );
+//    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+    glUniform1i( GetUniform( "u_UseDiffuseMapping" ), mapData->textures[Walnut::TB_DIFFUSEMAP] ? 1 : 0 );
+    glUniform1i( GetUniform( "u_UseSpecularMapping" ), mapData->textures[Walnut::TB_SPECULARMAP] ? 1 : 0 );
+    glUniform1i( GetUniform( "u_UseNormalMapping" ), mapData->textures[Walnut::TB_NORMALMAP] ? 1 : 0 );
+    glUniform1i( GetUniform( "u_UseAmbientOcclusionMapping" ), mapData->textures[Walnut::TB_SHADOWMAP] ? 1 : 0 );
+
+    glUniform1i( GetUniform( "u_NumLights" ), 0 );
 
     glActiveTexture( GL_TEXTURE0 );
     glBindTexture( GL_TEXTURE_2D, mapData->textures[Walnut::TB_DIFFUSEMAP] ? mapData->textures[Walnut::TB_DIFFUSEMAP]->GetID() : 0 );
+    glUniform1i( GetUniform( "u_DiffuseMap" ), 0 );
+
     if ( mapData->textures[Walnut::TB_NORMALMAP] ) {
         glActiveTexture( GL_TEXTURE1 );
         glBindTexture( GL_TEXTURE_2D, mapData->textures[Walnut::TB_NORMALMAP]->GetID() );
@@ -203,10 +318,14 @@ void CMapRenderer::DrawMap( void )
         glUniform1i( GetUniform( "u_SpecularMap" ), 2 );
     }
 
-    glUniformMatrix4fv( GetUniform( "u_ModelViewProjection" ), 1, GL_FALSE, glm::value_ptr( m_ViewProjection ) );
+    glUniform1i( GetUniform( "u_FramebufferActive" ), 0 );
 
-    numIndices = 0;
-    numVertices = 0;
+    glUniform3fv( GetUniform( "u_AmbientLightColor" ), 1, mapData->ambientColor );
+
+    glUniform1i( GetUniform( "u_TileSelected" ), m_bTileSelectOn );
+    glUniform1i( GetUniform( "u_TileSelectionX" ), m_nTileSelectX );
+    glUniform1i( GetUniform( "u_TileSelectionY" ), m_nTileSelectY );
+    glUniformMatrix4fv( GetUniform( "u_ModelViewProjection" ), 1, GL_FALSE, glm::value_ptr( m_ViewProjection ) );
 
     for ( y = 0; y < mapData->height; y++ ) {
         for ( x = 0; x < mapData->width; x++ ) {
@@ -215,34 +334,24 @@ void CMapRenderer::DrawMap( void )
 
             WorldToGL( pos, vtx );
 
-            if ( numVertices + 4 >= FRAME_VERTICES || numIndices + 6 >= FRAME_INDICES ) {
-                // orphan the old buffers
-//                glBufferData( GL_ARRAY_BUFFER, sizeof(Vertex) * FRAME_VERTICES, NULL, GL_DYNAMIC_DRAW );
-//                glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * FRAME_INDICES, NULL, GL_DYNAMIC_DRAW );
-
-                glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(Vertex) * numVertices, m_pVertices );
-                glBufferSubData( GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(uint32_t) * numIndices, m_pIndices );
-                glDrawElements( GL_TRIANGLES, numVertices, GL_UNSIGNED_INT, NULL );
-                vtx = m_pVertices;
-                numVertices = 0;
-                numIndices = 0;
-            }
-
             for ( i = 0; i < 4; i++ ) {
                 vtx[i].uv[0] = mapData->texcoords[mapData->tiles[y * mapData->width + x].index].uv[i][0];
                 vtx[i].uv[1] = mapData->texcoords[mapData->tiles[y * mapData->width + x].index].uv[i][1];
+
+                vtx[i].worldPos[0] = pos.x;
+                vtx[i].worldPos[1] = pos.y;
+
+                if ( m_bTileSelectOn && m_nTileSelectX == x && m_nTileSelectY == y ) {
+                    vtx[i].color = { 0.0f, 0.75f, 0.0f, 1.0f };
+                }
             }
 
-            numVertices += 4;
-            numIndices += 6;
             vtx += 4;
         }
     }
-    if ( numVertices ) {
-        glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(Vertex) * numVertices, m_pVertices );
-        glBufferSubData( GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(uint32_t) * numIndices, m_pIndices );
-        glDrawElements( GL_TRIANGLES, numVertices, GL_UNSIGNED_INT, NULL );
-    }
+    glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(Vertex) * mapData->width * mapData->height * 4, m_pVertices );
+    glBufferSubData( GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(uint32_t) * mapData->width * mapData->height * 6, m_pIndices );
+    glDrawElements( GL_TRIANGLES, mapData->width * mapData->height * 6, GL_UNSIGNED_INT, NULL );
 
     if ( mapData->textures[Walnut::TB_NORMALMAP] ) {
         glActiveTexture( GL_TEXTURE1 );
@@ -256,11 +365,37 @@ void CMapRenderer::DrawMap( void )
     glActiveTexture( GL_TEXTURE0 );
     glBindTexture( GL_TEXTURE_2D, 0 );
 
+//    glBindFramebuffer( GL_READ_FRAMEBUFFER, m_FrameBuffer );
+//    glBindFramebuffer( GL_DRAW_FRAMEBUFFER, 0 );
+//    glBlitFramebuffer( 0, 0, view->WorkSize.x - g_pApplication->m_DockspaceWidth, view->WorkSize.y,
+//                        0, 0, view->WorkSize.x - g_pApplication->m_DockspaceWidth, view->WorkSize.y,
+//                        GL_COLOR_BUFFER_BIT,
+//                        GL_NEAREST );
+//    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+//    glClear( GL_COLOR_BUFFER_BIT );
+//    glBindTexture( GL_TEXTURE_2D, m_ColorBuffer );
+//
+//    m_pVertices[0].xyz = {  1.0f,  1.0f, 0.0f };
+//    m_pVertices[1].xyz = {  1.0f, -1.0f, 0.0f };
+//    m_pVertices[2].xyz = { -1.0f, -1.0f, 0.0f };
+//    m_pVertices[3].xyz = { -1.0f,  1.0f, 0.0f };
+//
+//    m_pVertices[0].uv = { 0.0f, 0.0f };
+//    m_pVertices[1].uv = { 1.0f, 0.0f };
+//    m_pVertices[2].uv = { 1.0f, 1.0f };
+//    m_pVertices[3].uv = { 0.0f, 1.0f };
+//
+//    glUniform1i( GetUniform( "u_FramebufferActive" ), 1 );
+//    glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(Vertex) * 4, m_pVertices );
+//    glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL );
+
     glUseProgram( 0 );
 
     glBindVertexArray( 0 );
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
+
+    glViewport( 0, 0, view->WorkSize.x, view->WorkSize.y );
 }
 
 static void CheckShader( GLuint id, GLenum type )
@@ -297,6 +432,23 @@ static void ReloadShaders_f( void )
     Walnut::InitShaders();
 }
 
+static void CheckFramebuffer( void )
+{
+    GLenum err = glCheckFramebufferStatus( GL_FRAMEBUFFER );
+
+    switch ( err ) {
+    case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+        Error( "CheckFramebuffer: GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT reported" );
+        break;
+    case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+        Error( "CheckFramebuffer: GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT reported" );
+        break;
+    default:
+        Log_Printf( "Created framebuffer OK.\n" );
+        break;
+    };
+}
+
 void CMapRenderer::OnAttach( void )
 {
     uint32_t i, offset;
@@ -309,13 +461,14 @@ void CMapRenderer::OnAttach( void )
 
     m_CameraPos = { 0, 0, 0 };
     m_nCameraRotation = 0.0f;
-    m_nCameraZoom = 1.5f;
+    m_nCameraZoom = 9.5f;
 
-    m_pVertices = (Vertex *)GetMemory( sizeof(Vertex) * FRAME_VERTICES );
-    m_pIndices = (uint32_t *)GetMemory( sizeof(uint32_t) * FRAME_INDICES );
+    m_pVertices = (Vertex *)GetMemory( sizeof(Vertex) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT * 4 );
+    m_pIndices = (uint32_t *)GetMemory( sizeof(uint32_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT * 6 );
 
     offset = 0;
-    for ( i = 0; i < FRAME_INDICES; i += 6 ) {
+    const uint32_t maxIndices = MAX_MAP_WIDTH * MAX_MAP_HEIGHT * 6;
+    for ( i = 0; i < maxIndices; i += 6 ) {
         m_pIndices[i + 0] = offset + 0;
         m_pIndices[i + 1] = offset + 1;
         m_pIndices[i + 2] = offset + 2;
@@ -334,13 +487,13 @@ void CMapRenderer::OnAttach( void )
     glBindVertexArray( m_VertexArray );
 
     glBindBuffer( GL_ARRAY_BUFFER, m_VertexBuffer );
-    glBufferData( GL_ARRAY_BUFFER, sizeof(Vertex) * FRAME_VERTICES, NULL, GL_DYNAMIC_DRAW );
+    glBufferData( GL_ARRAY_BUFFER, sizeof(Vertex) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT * 4, NULL, GL_DYNAMIC_DRAW );
 
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, m_IndexBuffer );
-    glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * FRAME_INDICES, NULL, GL_DYNAMIC_DRAW );
+    glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT * 6, NULL, GL_DYNAMIC_DRAW );
 
     glEnableVertexAttribArray( 0 );
-    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void *)offsetof( Vertex, color ) );
+    glVertexAttribPointer( 0, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void *)offsetof( Vertex, color ) );
 
     glEnableVertexAttribArray( 1 );
     glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void *)offsetof( Vertex, xyz ) );
@@ -351,15 +504,15 @@ void CMapRenderer::OnAttach( void )
     glEnableVertexAttribArray( 3 );
     glVertexAttribPointer( 3, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void *)offsetof( Vertex, uv ) );
 
-    glEnableVertexAttribArray( 4 );
-    glVertexAttribPointer( 4, 1, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void *)(offsetof( Vertex, color ) + ( sizeof(vec_t) * 3 ) ) );
-
     glBindVertexArray( 0 );
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
 
     vertShader = GenShader( (const char **)&mapdraw_vert_shader, 1, GL_VERTEX_SHADER );
     fragShader = GenShader( (const char **)&mapdraw_frag_shader, 1, GL_FRAGMENT_SHADER );
+
+    CheckShader( vertShader, GL_VERTEX_SHADER );
+    CheckShader( fragShader, GL_FRAGMENT_SHADER );
 
     m_Shader = glCreateProgram();
 
@@ -374,6 +527,25 @@ void CMapRenderer::OnAttach( void )
     glDeleteShader( fragShader );
     
     glUseProgram( 0 );
+
+    glGenFramebuffers( 1, &m_FrameBuffer );
+    glBindFramebuffer( GL_FRAMEBUFFER, m_FrameBuffer );
+
+    glGenTextures( 1, &m_ColorBuffer );
+    glBindTexture( GL_TEXTURE_2D, m_ColorBuffer );
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, g_pApplication->m_Specification.Width, g_pApplication->m_Specification.Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+    glBindTexture( GL_TEXTURE_2D, 0 );
+    glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_ColorBuffer, 0 );
+
+    glGenRenderbuffers( 1, &m_DepthBuffer );
+    glBindRenderbuffer( GL_RENDERBUFFER, m_DepthBuffer );
+    glRenderbufferStorageMultisample( GL_RENDERBUFFER, 8, GL_DEPTH24_STENCIL8, g_pApplication->m_Specification.Width, g_pApplication->m_Specification.Height );
+    glBindRenderbuffer( GL_RENDERBUFFER, 0 );
+    glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_DepthBuffer );
+
+    CheckFramebuffer();
+
+    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 }
 
 void CMapRenderer::OnDetach( void )

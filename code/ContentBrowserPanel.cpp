@@ -25,9 +25,8 @@ void ContentBrowserPanel::OnDetach( void )
 
 void ContentBrowserPanel::OnUIRender( void )
 {
-    static float padding = 16.0f;
 	static float thumbnailSize = 128.0f;
-	const float cellSize = thumbnailSize + padding;
+	const float cellSize = thumbnailSize;
 	const float panelWidth = ImGui::GetContentRegionAvail().x;
     int columnCount;
 
@@ -89,8 +88,6 @@ void ContentBrowserPanel::OnUIRender( void )
 	}
 
 	ImGui::Columns( 1 );
-	ImGui::SliderFloat( "Thumbnail Size", &thumbnailSize, 16, 512 );
-	ImGui::SliderFloat( "Padding", &padding, 0, 32 );
 
 	// TODO: status bar
 	ImGui::End();

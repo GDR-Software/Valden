@@ -37,8 +37,8 @@ void CEditorLayer::OnDetach( void )
 
 void CEditorLayer::LoadProjectFileDlg( void )
 {
-    ImGuiFileDialog::Instance()->OpenDialog( "LoadProjectFileDlg", "Open File", "Project Files (*.proj *.json){.proj, .json},*.json,*.proj",
-        g_pPrefsDlg->m_PrefsDlgEngine );
+    ImGuiFileDialog::Instance()->OpenDialog( "LoadProjectFileDlg", "Open File", "Project Files (*.proj *.json){.proj, .json},.json,.proj",
+        m_RecentDirectory );
 }
 
 void CEditorLayer::OnFileSave( void )
@@ -61,13 +61,13 @@ void CEditorLayer::OnFileSaveAll( void )
 
 void CEditorLayer::OnFileImport( void )
 {
-    ImGuiFileDialog::Instance()->OpenDialog( "ImportMapFileDlg", "Import Map File", "*.map, *.bmf, Map Files (*.map *.bmf){.map, .bmf}",
-        g_pPrefsDlg->m_PrefsDlgEngine );
+    ImGuiFileDialog::Instance()->OpenDialog( "ImportMapFileDlg", "Import Map File", MAP_FILEDLG_FILTERS,
+        m_RecentDirectory );
 }
 
 void CEditorLayer::OnFileSaveAs( void )
 {
-    ImGuiFileDialog::Instance()->OpenDialog( "SaveMapFileAsDlg", "Select Save Folder", "*.map, *.bmf", g_pPrefsDlg->m_PrefsDlgEngine );
+    ImGuiFileDialog::Instance()->OpenDialog( "SaveMapFileAsDlg", "Select Save Folder", ".map,.bmf", m_RecentDirectory );
 }
 
 void CEditorLayer::OnFileNew( void )
@@ -77,8 +77,8 @@ void CEditorLayer::OnFileNew( void )
 
 void CEditorLayer::OnFileOpen( void )
 {
-    ImGuiFileDialog::Instance()->OpenDialog( "OpenMapFileDlg", "Open Map File", "*.map, *.bmf, Map Files (*.map *.bmf){.map, .bmf}",
-        g_pPrefsDlg->m_PrefsDlgEngine );
+    ImGuiFileDialog::Instance()->OpenDialog( "OpenMapFileDlg", "Open Map File", MAP_FILEDLG_FILTERS,
+        m_RecentDirectory );
 }
 
 void CEditorLayer::OnFileProjectNew( void )

@@ -84,6 +84,9 @@ void CPrefsDlg::Load( void )
     } else {
         m_PrefsDlgEngine = g_pEditor->m_CurrentPath;
     }
+
+    m_nCameraMoveSpeed = data["camera_move_speed"];
+    m_nCameraRotationSpeed = data["camera_rotation_speed"];
     
     m_nAutoSaveTime = data["autosavetime"];
     m_nFontScale = data["fontscale"];
@@ -119,29 +122,6 @@ void CPrefsDlg::Load( void )
         imStyle->Colors[ImGuiCol_MenuBarBg] = json_to_vec4( style, "menuBarBg" );
     }
 
-    const std::vector<json>& itemlist = data["itemlist"];
-    const std::vector<json>& weaponlist = data["weaponlist"];
-    const std::vector<json>& moblist = data["moblist"];
-    const std::vector<json>& botlist = data["botlist"];
-
-    m_EntityLists[ ET_ITEM ].reserve( itemlist.size() );
-    m_EntityLists[ ET_WEAPON ].reserve( weaponlist.size() );
-    m_EntityLists[ ET_MOB ].reserve( moblist.size() );
-    m_EntityLists[ ET_BOT ].reserve( botlist.size() );
-
-    for ( const auto& it : itemlist ) {
-        m_EntityLists[ ET_ITEM ].emplace_back( it.at( "name" ).get<std::string>().c_str(), it.at( "id" ) );
-    }
-    for ( const auto& it : weaponlist ) {
-        m_EntityLists[ ET_WEAPON ].emplace_back( it.at( "name" ).get<std::string>().c_str(), it.at( "id" ) );
-    }
-    for ( const auto& it : moblist ) {
-        m_EntityLists[ ET_MOB ].emplace_back( it.at( "name" ).get<std::string>().c_str(), it.at( "id" ) );
-    }
-    for ( const auto& it : botlist ) {
-        m_EntityLists[ ET_BOT ].emplace_back( it.at( "name" ).get<std::string>().c_str(), it.at( "id" ) );
-    }
-
     m_bActive = false;
     m_nSelected = -1;
 
@@ -164,10 +144,6 @@ void CPrefsDlg::Save( void ) const
 {
     json data;
     uint32_t i;
-    std::vector<json> itemlist;
-    std::vector<json> weaponlist;
-    std::vector<json> moblist;
-    std::vector<json> botlist;
 
     Log_Printf( "CPrefsDlg::Save: saving editor preferences file...\n" );
 
@@ -204,45 +180,11 @@ void CPrefsDlg::Save( void ) const
     data["lastproject"] = m_LastProject;
     data["lastmap"] = m_LastMap;
 
+    data["camera_move_speed"] = m_nCameraMoveSpeed;
+    data["camera_rotation_speed"] = m_nCameraRotationSpeed;
+
     data["autosavetime"] = m_nAutoSaveTime;
     data["fontscale"] = m_nFontScale;
-
-    itemlist.reserve( m_EntityLists[ ET_ITEM ].size() );
-    for ( i = 0; i < m_EntityLists[ ET_ITEM ].size(); i++ ) {
-        json& it = itemlist.emplace_back();
-
-        it["id"] = m_EntityLists[ ET_ITEM ][i].m_Id;
-        it["name"] = m_EntityLists[ ET_ITEM ][i].m_Name;
-    }
-
-    weaponlist.reserve( m_EntityLists[ ET_WEAPON ].size() );
-    for ( i = 0; i < m_EntityLists[ ET_WEAPON ].size(); i++ ) {
-        json& it = weaponlist.emplace_back();
-
-        it["id"] = m_EntityLists[ ET_WEAPON ][i].m_Id;
-        it["name"] = m_EntityLists[ ET_WEAPON ][i].m_Name;
-    }
-
-    moblist.reserve( m_EntityLists[ ET_MOB ].size() );
-    for ( i = 0; i < m_EntityLists[ ET_MOB ].size(); i++ ) {
-        json& it = moblist.emplace_back();
-
-        it["id"] = m_EntityLists[ ET_MOB ][i].m_Id;
-        it["name"] = m_EntityLists[ ET_MOB ][i].m_Name;
-    }
-
-    botlist.reserve( m_EntityLists[ ET_BOT ].size() );
-    for ( i = 0; i < m_EntityLists[ ET_BOT ].size(); i++ ) {
-        json& it = botlist.emplace_back();
-
-        it["id"] = m_EntityLists[ ET_BOT ][i].m_Id;
-        it["name"] = m_EntityLists[ ET_BOT ][i].m_Name;
-    }
-
-    data["itemlist"] = itemlist;
-    data["weaponlist"] = weaponlist;
-    data["moblist"] = moblist;
-    data["botlist"] = botlist;
 
     std::ofstream file( va( "%spreferences.json", g_pEditor->m_CurrentPath.c_str() ), std::ios::out );
 
@@ -337,15 +279,15 @@ void CPrefsDlg::Draw( void )
         switch ( m_nSelected ) {
         case -1:
             break;
-        case 0:
+        case 0: {
             ImGui::Checkbox( "Auto load game on startup", &m_bAutoLoadOnStartup );
             ImGui::Checkbox( "Log the console to editor.log", &m_bLogToFile );
 
-            ImGui::TextUnformatted( "Editor Font Scale" );
-            ImGui::SameLine();
-            if ( ImGui::SliderFloat( " ", &m_nFontScale, 1.0f, 5.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp ) ) {
-                ImGui::GetIO().FontDefault->Scale = m_nOldFontScale * m_nFontScale;
-            }
+//            ImGui::TextUnformatted( "Editor Font Scale" );
+//            ImGui::SameLine();
+//            if ( ImGui::SliderFloat( " ", &m_nFontScale, 1.0f, 5.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp ) ) {
+//                ImGui::GetIO().FontDefault->Scale = m_nOldFontScale * m_nFontScale;
+//            }
             ImGui::TextUnformatted( "Set Editor Save Path" );
             ImGui::SameLine();
             if ( ImGui::Button( m_PrefsDlgEngine.c_str() ) ) {
@@ -398,8 +340,8 @@ void CPrefsDlg::Draw( void )
                 ImGui::EndCombo();
             }
 
-            break;
-        case 1:
+            break; }
+        case 1: {
             ImGui::SliderFloat( "Camera Movement Speed", &m_nCameraMoveSpeed, 2.0f, 32.0f );
             if ( ImGui::IsItemHovered() ) {
                 ImGuiIO& io = ImGui::GetIO();
@@ -432,7 +374,7 @@ void CPrefsDlg::Draw( void )
                 m_nCameraRotationSpeed = 1.0f;
             }
 
-            break;
+            break; }
         case 2:
             break;
         };

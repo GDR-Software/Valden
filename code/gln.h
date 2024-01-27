@@ -198,6 +198,14 @@ void Hunk_FreeToLowMark( int mark );
 int Hunk_HighMark( void );
 void Hunk_FreeToHighMark( int mark );
 
+#define IMAGE_FILEDLG_FILTERS \
+	".jpg,.jpeg,.png,.bmp,.tga,.webp," \
+	"Jpeg Files (*.jpeg *.jpg){.jpeg,.jpg}," \
+	"Image Files (*.jpg *.jpeg *.png *.bmp *.tga *.webp){.jpg,.jpeg,.png,.bmp,.tga,.webp}"
+
+#define MAP_FILEDLG_FILTERS \
+	".map," \
+	"Map Files (*.map){.map}"
 
 typedef enum {
 	TK_GENEGIC = 0, // for single-char tokens
@@ -237,6 +245,8 @@ void COM_BeginParseSession( const char *name );
 #define VectorClear( x ) ((x)[0]=(x)[1]=(x)[2]=0)
 #define VectorCopy( dst, src ) ((dst)[0]=(src)[0],(dst)[1]=(src)[1],(dst)[2]=(src)[2])
 #define VectorSet4( dst, r, g, b, a ) ((dst)[0]=(r),(dst)[1]=(g),(dst)[2]=(b),(dst)[3]=(a))
+
+void *CopyMemory( const void *src, int nBytes );
 
 void N_strncpyz( char *dest, const char *src, size_t count );
 int N_stricmp( const char *s1, const char *s2 );

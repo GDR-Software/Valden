@@ -2,6 +2,7 @@
 #include "gui.h"
 #include "stb_image.h"
 #include "mapinfo_dlg.h"
+#include "events.h"
 #include "misc/cpp/imgui_stdlib.h"
 #include <mutex>
 
@@ -105,6 +106,10 @@ static void InitDialogs( void )
 
 	Walnut::InitShaders();
 	Walnut::InitTextures();
+
+	g_pMapInfoDlg->SetCurrent( mapData );
+
+	g_pEditor->m_RecentDirectory = g_pPrefsDlg->m_PrefsDlgEngine;
 }
 
 void CEditorLayer::OnTextEdit( const std::filesystem::path& filename )
@@ -200,6 +205,53 @@ void CEditorLayer::OnUIRender( void )
 	if ( g_pContentBrowserDlg->ItemIsSelected() ) {
 	}
 
+	if ( ImGui::BeginPopup( "AddItem" ) ) {
+		ImGui::EndPopup();
+	}
+	if ( ImGui::BeginPopup( "AddMob" ) ) {
+		ImGui::TextUnformatted( "Name: " );
+		ImGui::InputText( "##AddMobName", m_szAddMobName, sizeof(m_szAddMobName) - 1 );
+		ImGui::TextUnformatted( "Id: " );
+		ImGui::InputInt( "##AddMobId", (int *)&m_nAddMobId );
+
+		if ( ImGui::Button( "OK" ) ) {
+			g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ].emplace_back( m_szAddMobName, m_nAddMobId );
+			memset( m_szAddMobName, 0, sizeof(m_szAddMobName) );
+			m_nAddMobId = 0;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if ( ImGui::Button( "CANCEL" ) ) {
+			memset( m_szAddMobName, 0, sizeof(m_szAddMobName) );
+			m_nAddMobId = 0;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+	if ( ImGui::BeginPopup( "AddWeapon" ) ) {
+		ImGui::EndPopup();
+	}
+	if ( ImGui::BeginPopup( "AddBot" ) ) {
+		ImGui::EndPopup();
+	}
+
+	if ( ImGui::BeginPopup( "ModifyItem" ) ) {
+		ImGui::SeparatorText( "Modify Item" );
+		ImGui::EndPopup();
+	}
+	if ( ImGui::BeginPopup( "ModifyMob" ) ) {
+		ImGui::SeparatorText( "Modify Mob" );
+		ImGui::EndPopup();
+	}
+	if ( ImGui::BeginPopup( "ModifyWeapon" ) ) {
+		ImGui::SeparatorText( "Modify Weapon" );
+		ImGui::EndPopup();
+	}
+	if ( ImGui::BeginPopup( "ModifyBot" ) ) {
+		ImGui::SeparatorText( "Modify Bot" );
+		ImGui::EndPopup();
+	}
+
 	if ( ImGui::Begin( "Project Info" ) ) {
 		if ( ImGui::IsWindowFocused() ) {
 			m_bWindowFocused = true;
@@ -214,7 +266,7 @@ void CEditorLayer::OnUIRender( void )
 
 		if ( ImGui::Button( "Add Map To Project" ) ) {
 			ImGuiFileDialog::Instance()->OpenDialog( "AddMapToProjectDlg", "Open Map File", ".map, .bmf, Map Files (*.map *.bmf){*.map, *.bmf}",
-				g_pPrefsDlg->m_PrefsDlgEngine );
+				g_pEditor->m_RecentDirectory );
 		}
 
 		if ( ImGui::BeginCombo( "Map List", mapData->name ) ) {
@@ -232,6 +284,71 @@ void CEditorLayer::OnUIRender( void )
 
 			ImGui::EndCombo();
 		}
+
+		if ( ImGui::BeginCombo( "Mob List", "Mob List" ) ) {
+			
+			std::vector<entityInfo_t>& entityList = g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ];
+			for ( auto it = entityList.begin(); it != entityList.end(); it++ ) {
+				if ( ImGui::Selectable( it->m_Name.c_str(), ( m_pCurrentMob == it ) ) ) {
+					m_pCurrentMob = it;
+					ImGui::OpenPopup( "ModifyMob" );
+				}
+			}
+			if ( ImGui::Button( "Add Mob" ) ) {
+				ImGui::OpenPopup( "AddMob" );
+			}
+
+			ImGui::EndCombo();
+		}
+
+		if ( ImGui::BeginCombo( "Item List", "Item List" ) ) {
+			
+			std::vector<entityInfo_t>& entityList = g_pProjectManager->GetProject()->m_EntityList[ ET_ITEM ];
+			for ( auto it = entityList.begin(); it != entityList.end(); it++ ) {
+				if ( ImGui::Selectable( it->m_Name.c_str(), ( m_pCurrentItem == it ) ) ) {
+					m_pCurrentItem = it;
+					ImGui::OpenPopup( "ModifyItem" );
+				}
+			}
+			if ( ImGui::Button( "Add Item" ) ) {
+				ImGui::OpenPopup( "AddItem" );
+			}
+
+			ImGui::EndCombo();
+		}
+
+		if ( ImGui::BeginCombo( "Weapon List", "Weapon List" ) ) {
+			
+			std::vector<entityInfo_t>& entityList = g_pProjectManager->GetProject()->m_EntityList[ ET_WEAPON ];
+			for ( auto it = entityList.begin(); it != entityList.end(); it++ ) {
+				if ( ImGui::Selectable( it->m_Name.c_str(), ( m_pCurrentWeapon == it ) ) ) {
+					m_pCurrentWeapon = it;
+					ImGui::OpenPopup( "ModifyWeapon" );
+				}
+			}
+			if ( ImGui::Button( "Add Weapon" ) ) {
+				ImGui::OpenPopup( "AddWeapon" );
+			}
+
+			ImGui::EndCombo();
+		}
+
+		if ( ImGui::BeginCombo( "Bot List", "Bot List" ) ) {
+			
+			std::vector<entityInfo_t>& entityList = g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ];
+			for ( auto it = entityList.begin(); it != entityList.end(); it++ ) {
+				if ( ImGui::Selectable( it->m_Name.c_str(), ( m_pCurrentBot == it ) ) ) {
+					m_pCurrentBot = it;
+					ImGui::OpenPopup( "ModifyBot" );
+				}
+			}
+			if ( ImGui::Button( "Add Bot" ) ) {
+				ImGui::OpenPopup( "AddBot" );
+			}
+
+			ImGui::EndCombo();
+		}
+
 		ImGui::End();
 	}
 
@@ -321,10 +438,15 @@ void Valden_HandleInput( void )
 	//
 	// check for new input focus
 	//
-	if ( ImGui::IsKeyDown( ImGuiKey_MouseMiddle ) || ImGui::IsKeyDown( ImGuiKey_MouseLeft ) ) {
-//		if ( !g_pEditor->m_bWindowFocused ) {
-//			g_pEditor->m_InputFocus = EditorInputFocus::MapFocus;
-//		}
+	if ( Key_IsDown( KEY_MOUSE_MIDDLE ) || Key_IsDown( KEY_MOUSE_LEFT ) ) {
+
+		const ImVec2 mousePos = ImGui::GetMousePos();
+
+		if ( mousePos.x > g_pApplication->m_DockspaceWidth && mousePos.y > 24 ) {
+			g_pEditor->m_InputFocus = EditorInputFocus::MapFocus;
+		} else {
+			g_pEditor->m_InputFocus = EditorInputFocus::ToolFocus;
+		}
 	}
 
 	switch ( g_pEditor->m_InputFocus ) {
@@ -373,10 +495,127 @@ void Valden_HandleInput( void )
 				g_pEditor->OnFileSave();
 			}
 		}
+		if ( ImGui::IsKeyDown( ImGuiKey_T ) ) {
+			ImGui::OpenPopup( "TileMode" );
+		}
+		if ( ImGui::IsKeyDown( ImGuiKey_C ) ) {
+			if ( g_pMapDrawer->m_bTileSelectOn ) {
+				g_pEditor->m_pCopyPasteData = CopyMemory( &mapData->tiles[g_pMapDrawer->m_nTileSelectY * mapData->width + g_pMapDrawer->m_nTileSelectX],
+					sizeof(maptile_t) );
+				Log_Printf( "Copied tile at %ix%i to editor clipboard.\n" );
+			}
+		}
+		if ( ImGui::IsKeyDown( ImGuiKey_V ) ) {
+			if ( g_pMapDrawer->m_bTileSelectOn ) {
+				memcpy( &mapData->tiles[g_pMapDrawer->m_nTileSelectY * mapData->width + g_pMapDrawer->m_nTileSelectX], g_pEditor->m_pCopyPasteData,
+					sizeof(maptile_t) );
+				g_pMapInfoDlg->m_bMapModified = true;
+				g_pMapInfoDlg->m_bMapNameUpdated = false;
+			}
+			free( g_pEditor->m_pCopyPasteData );
+		}
 		if ( ImGui::IsKeyDown( ImGuiKey_M ) ) {
 			g_pEditor->m_InputFocus = EditorInputFocus::MapFocus;
 		}
 	}
+}
+
+static void FileMenu( void )
+{
+	if ( ImGui::MenuItem( "New Map", "Ctrl+N" ) ) {
+        g_pEditor->OnFileNew();
+    }
+    ImGui::Separator();
+    if ( ImGui::MenuItem( "Open...", "Ctrl+O" ) ) {
+        g_pEditor->OnFileOpen();
+    }
+    if ( ImGui::MenuItem( "Import..." ) ) {
+        g_pEditor->OnFileImport();
+    }
+    if ( ImGui::MenuItem( "Save", "Ctrl+S" ) ) {
+        g_pEditor->OnFileSave();
+    }
+	if ( ImGui::MenuItem( "Save All", "Ctrl+Alt+S" ) ) {
+		g_pEditor->OnFileSaveAll();
+	}
+    if ( ImGui::MenuItem( "Save as...", "Ctrl+Shift+S" ) ) {
+        g_pEditor->OnFileSaveAs();
+    }
+    ImGui::Separator();
+    if ( ImGui::MenuItem( "New Project...", "Ctrl+Shift+N" ) ) {
+    }
+    if ( ImGui::MenuItem( "Load Project...", "Ctrl+Shitf+L" ) ) {
+		g_pEditor->LoadProjectFileDlg();
+    }
+    if ( ImGui::MenuItem( "Project Settings..." ) ) {
+    }
+    ImGui::Separator();
+	if ( ImGui::BeginMenu( "Recent Files", g_pEditor->m_RecentFiles.size() ) ) {
+		if ( !g_pEditor->m_RecentFiles.size() || !g_pEditor->m_RecentFiles.front().c_str()[0] ) {
+			ImGui::MenuItem( "None" );
+		}
+		else {
+			for ( const auto& it : g_pEditor->m_RecentFiles ) {
+				if ( ImGui::MenuItem( it.c_str() ) ) {
+					Map_LoadFile( it.c_str() );
+				}
+			}
+		}
+		ImGui::EndMenu();
+	}
+    if ( ImGui::MenuItem( "Exit" ) ) {
+		if ( ::ConfirmModified() ) {
+			g_pApplication->Close();
+			exit( EXIT_SUCCESS );
+		}
+    }
+}
+
+static void EditMenu( void )
+{
+	if ( ImGui::MenuItem( "Undo", "Ctrl+Z" ) ) {
+    }
+    if ( ImGui::MenuItem( "Redo", "Ctrl+Y" ) ) {
+    }
+    ImGui::Separator();
+    if ( ImGui::MenuItem( "Copy", "Ctrl+C" ) ) {
+		if ( g_pMapDrawer->m_bTileSelectOn ) {
+			g_pEditor->m_pCopyPasteData = CopyMemory( &mapData->tiles[g_pMapDrawer->m_nTileSelectY * mapData->width + g_pMapDrawer->m_nTileSelectX],
+				sizeof(maptile_t) );
+			Log_Printf( "Copied tile at %ix%i to editor clipboard.\n" );
+		}
+    }
+    if ( ImGui::MenuItem( "Paste", "Ctrl+V" ) && g_pEditor->m_pCopyPasteData ) {
+		if ( g_pMapDrawer->m_bTileSelectOn ) {
+			memcpy( &mapData->tiles[g_pMapDrawer->m_nTileSelectY * mapData->width + g_pMapDrawer->m_nTileSelectX], g_pEditor->m_pCopyPasteData,
+				sizeof(maptile_t) );
+			g_pMapInfoDlg->m_bMapModified = true;
+			g_pMapInfoDlg->m_bMapNameUpdated = false;
+		}
+		free( g_pEditor->m_pCopyPasteData );
+    }
+	ImGui::Separator();
+	if ( ImGui::MenuItem( "Current Tile", "Ctrl-T" ) ) {
+		ImGui::OpenPopup( "TileMode" );
+	}
+    ImGui::Separator();
+    if ( ImGui::MenuItem( "Preferences...", "P" ) ) {
+		g_pPrefsDlg->OnActivate();
+    }
+}
+
+static void ViewMenu( void )
+{
+	if ( ImGui::Button( "Center Camera" ) ) {
+		Cmd_ExecuteText( "/centercamera\n" );
+	}
+    if ( ImGui::BeginMenu( "Filter" ) ) {
+        ImGui::Checkbox( "Show Checkpoints", &g_pEditor->m_bFilterShowCheckpoints );
+        ImGui::EndMenu();
+    }
+	ImGui::Checkbox( "Console Window", &s_ConsoleOpen );
+	ImGui::Checkbox( "ImGui Metrics", &g_pEditor->m_bShowImGuiMetricsWindow );
+	ImGui::Checkbox( "Map Data", &g_pMapInfoDlg->m_bShow );
 }
 
 static void DrawEditor( void )
@@ -385,81 +624,42 @@ static void DrawEditor( void )
 
 	Valden_HandleInput();
 
-	if ( ImGui::BeginMenu( "File" ) ) {
-        if ( ImGui::MenuItem( "New Map", "Ctrl+N" ) ) {
-            g_pEditor->OnFileNew();
-        }
-        ImGui::Separator();
-        if ( ImGui::MenuItem( "Open...", "Ctrl+O" ) ) {
-            g_pEditor->OnFileOpen();
-        }
-        if ( ImGui::MenuItem( "Import..." ) ) {
-            g_pEditor->OnFileImport();
-        }
-        if ( ImGui::MenuItem( "Save", "Ctrl+S" ) ) {
-            g_pEditor->OnFileSave();
-        }
-		if ( ImGui::MenuItem( "Save All", "Ctrl+Alt+S" ) ) {
-			g_pEditor->OnFileSaveAll();
+	if ( ImGui::BeginPopup( "##FileEx" ) ) {
+		FileMenu();
+		ImGui::EndPopup();
+	}
+	else if ( ImGui::BeginMenu( "File" ) ) {
+		if ( ImGui::Button( "-------------------------" ) ) {
+			ImGui::OpenPopup( "##FileEx" );
 		}
-        if ( ImGui::MenuItem( "Save as...", "Ctrl+Shift+S" ) ) {
-            g_pEditor->OnFileSaveAs();
-        }
-        ImGui::Separator();
-        if ( ImGui::MenuItem( "New Project...", "Ctrl+Shift+N" ) ) {
-        }
-        if ( ImGui::MenuItem( "Load Project...", "Ctrl+Shitf+L" ) ) {
-			g_pEditor->LoadProjectFileDlg();
-        }
-        if ( ImGui::MenuItem( "Project Settings..." ) ) {
-        }
-        ImGui::Separator();
-		if ( ImGui::BeginMenu( "Recent Files", g_pEditor->m_RecentFiles.size() ) ) {
-			for ( const auto& it : g_pEditor->m_RecentFiles ) {
-				if ( ImGui::MenuItem( it.c_str() ) ) {
-					Map_LoadFile( it.c_str() );
-				}
-			}
-			ImGui::EndMenu();
-		}
-        if ( ImGui::MenuItem( "Exit" ) ) {
-			if ( ::ConfirmModified() ) {
-				g_pApplication->Close();
-				exit( EXIT_SUCCESS );
-			}
-        }
+		FileMenu();
         ImGui::EndMenu();
 	}
-    if ( ImGui::BeginMenu( "Edit" ) ) {
-        if ( ImGui::MenuItem( "Undo", "Ctrl+Z" ) ) {
-        }
-        if ( ImGui::MenuItem( "Redo", "Ctrl+Y" ) ) {
-        }
-        ImGui::Separator();
-        if ( ImGui::MenuItem( "Copy", "Ctrl+C" ) ) {
-        }
-        if ( ImGui::MenuItem( "Paste", "Ctrl+V" ) ) {
-        }
-        ImGui::Separator();
-        if ( ImGui::MenuItem( "Preferences...", "P" ) ) {
-			g_pPrefsDlg->OnActivate();
-        }
+
+	if ( ImGui::BeginPopup( "##EditEx" ) ) {
+		EditMenu();
+		ImGui::EndPopup();
+	}
+    else if ( ImGui::BeginMenu( "Edit" ) ) {
+		if ( ImGui::Button( "-------------------------" ) ) {
+			ImGui::OpenPopup( "##EditEx" );
+		}
+		EditMenu();
         ImGui::EndMenu();
     }
-    if ( ImGui::BeginMenu( "View" ) ) {
-		if ( ImGui::Button( "Center Camera" ) ) {
-			Cmd_ExecuteText( "/centercamera\n" );
-		}
-        if ( ImGui::BeginMenu( "Filter" ) ) {
-            ImGui::Checkbox( "Show Checkpoints", &g_pEditor->m_bFilterShowCheckpoints );
-            ImGui::EndMenu();
-        }
-		ImGui::Checkbox( "Console Window", &s_ConsoleOpen );
-		ImGui::Checkbox( "ImGui Metrics", &g_pEditor->m_bShowImGuiMetricsWindow );
-		ImGui::Checkbox( "Map Data", &g_pMapInfoDlg->m_bShow );
 
+	if ( ImGui::BeginPopup( "##ViewEx" ) ) {
+		ViewMenu();
+		ImGui::EndPopup();
+	}
+    else if ( ImGui::BeginMenu( "View" ) ) {
+		if ( ImGui::Button( "-------------------------" ) ) {
+			ImGui::OpenPopup( "##ViewEx" );
+		}
+		ViewMenu();
         ImGui::EndMenu();
 	}
+
 	if ( ImGui::BeginMenu( "Build" ) ) {
 		if ( ImGui::MenuItem( "Compile Map" ) ) {
 
@@ -485,9 +685,11 @@ static void DrawEditor( void )
 	}
 
 	if ( s_ConsoleOpen ) {
-		ImGui::Begin( "Editor Debug Console", NULL, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove );
+		ImGui::PushStyleColor( ImGuiCol_WindowBg, ImVec4( 0.0f, 0.0f, 0.0f, 1.0f ) );
+		ImGui::Begin( "Editor Debug Console", NULL, ImGuiWindowFlags_NoCollapse );
 		ImGui::TextUnformatted( CMapRenderer::g_CommandConsoleString.data() );
 		ImGui::End();
+		ImGui::PopStyleColor();
 	}
 }
 
