@@ -44,12 +44,15 @@ void CPrefsDlg::Reset( void )
 
     m_LastProject = " ";
     m_LastMap = " ";
+    m_PrefsDlgEngine = "None";
 
-    ImGui::StyleColorsDark( &m_EditorStyle );
-    m_bUseEditorStyleCustom = false;
-    m_bUseEditorStyleLight = false;
-    m_bUseEditorStyleDark = true;
-    ImGui::GetStyle() = m_EditorStyle;
+    if ( ImGui::GetCurrentContext() ) {
+        ImGui::StyleColorsDark( &m_EditorStyle );
+        m_bUseEditorStyleCustom = false;
+        m_bUseEditorStyleLight = false;
+        m_bUseEditorStyleDark = true;
+        ImGui::GetStyle() = m_EditorStyle;
+    }
 }
 
 void CPrefsDlg::Load( void )
@@ -61,7 +64,10 @@ void CPrefsDlg::Load( void )
     file.open( ospath, std::ios::in );
 
     if ( file.fail() ) {
-        Error( "[CPrefsDlg::CPrefsDlg] Failed to load preferences file '%s'", ospath );
+        Log_Printf( "[CPrefsDlg::CPrefsDlg] Failed to load preferences file '%s'", ospath );
+        Log_Printf( "Setting all preferences to default...\n" );
+        Reset();
+        return;
     }
 
     try {
@@ -168,6 +174,8 @@ void CPrefsDlg::Save( void ) const
         ImGui::LogFinish();
     }
 
+    data["lastproject"] = g_pProjectManager->GetProject()->m_Name;
+    data["lastmap"] = mapData->name;
     data["engine"] = m_Engine;
     data["projectdatapath"] = m_ProjectDataPath;
     data["enginepath"] = m_PrefsDlgEngine;
@@ -226,7 +234,7 @@ void CPrefsDlg::Draw( void )
     const ImGuiTreeNodeFlags treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth
                                                 | ImGuiTreeNodeFlags_FramePadding;
     
-    if ( ImGui::Begin( "SIR Editor Preferences", &m_bActive, m_Flags ) ) {
+    if ( ImGui::Begin( "Valden Preferences", &m_bActive, m_Flags ) ) {
         if ( ImGui::Button( "Clear" ) ) {
             Reset();
         }

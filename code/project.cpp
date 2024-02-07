@@ -30,6 +30,24 @@ static void MakeAssetDirectoryPath()
 
 }
 
+void CProjectManager::InitProjectConfig( const char *filepath ) const
+{
+    json config;
+    const char *path;
+
+    path = va( "%s%cConfig%cconfig.json", filepath, PATH_SEP, PATH_SEP );
+    std::ofstream file( path );
+    if ( !file.is_open() ) {
+        Error( "[CProjectManager::New] failed to create project configuration file '%s'", path );
+    }
+
+    config["name"] = "untitled";
+    config["assetdirectory"] = va( "%s%cAssets", filepath, PATH_SEP );
+
+    file.width( 4 );
+    file << config;
+}
+
 void CProjectManager::AddToCache( const std::string& path, bool loadJSON, bool buildPath )
 {
     std::string filePath;
@@ -41,14 +59,20 @@ void CProjectManager::AddToCache( const std::string& path, bool loadJSON, bool b
     proj = std::make_shared<Project>();
 
     proj->m_FilePath = va( "%s%c", path.c_str(), PATH_SEP );
+    m_ProjList[path] = proj;
 
     if ( loadJSON ) {
-        const char *ospath = buildPath ? va( "%s%s%cConfig%cconfig.json", g_pEditor->m_CurrentPath.c_str(), path.c_str(), PATH_SEP, PATH_SEP )
-            : va( "%s%cConfig%cconfig.json", path.c_str(), PATH_SEP, PATH_SEP );
+        const char *ospath = va( "%s%cConfig%cconfig.json", path.c_str(), PATH_SEP, PATH_SEP );
 
         std::ifstream file( ospath, std::ios::in );
         if ( !file.is_open() ) {
-            Log_Printf( "[CProjectManager::AddToCache] failed to open project config file '%s'!\n", ospath );
+            Log_Printf( "[CProjectManager::AddToCache] failed to open project config file '%s', creating default...\n", ospath );
+            InitProjectConfig( path.c_str() );
+
+            proj->m_Name = "untitled";
+            proj->m_AssetDirectory = va( "%s%cAssets", path.c_str(), PATH_SEP );
+            proj->m_AssetPath = "Assets";
+
             return;
         }
 
@@ -62,26 +86,20 @@ void CProjectManager::AddToCache( const std::string& path, bool loadJSON, bool b
         file.close();
 
         proj->m_Name = data["name"];
-        proj->m_AssetDirectory = va( "%s%s%s.proj%c%s", g_pEditor->m_CurrentPath.c_str(), g_pPrefsDlg->m_ProjectDataPath.c_str(), proj->m_Name.c_str(), PATH_SEP,
-            data["assetdirectory"].get<std::string>().c_str() );
+        proj->m_AssetDirectory = va( "%s%c%s", path.c_str(), PATH_SEP, data["assetdirectory"].get<std::string>().c_str() );
         proj->m_AssetPath = data["assetdirectory"];
 
         if ( data.contains( "data_lists" ) ) {
             const std::vector<json>& itemlist = data["data_lists"]["itemlist"];
-            const std::vector<json>& weaponlist = data["data_lists"]["weaponlist"];
             const std::vector<json>& moblist = data["data_lists"]["moblist"];
             const std::vector<json>& botlist = data["data_lists"]["botlist"];
 
             proj->m_EntityList[ ET_ITEM ].reserve( itemlist.size() );
-            proj->m_EntityList[ ET_WEAPON ].reserve( weaponlist.size() );
             proj->m_EntityList[ ET_MOB ].reserve( moblist.size() );
             proj->m_EntityList[ ET_BOT ].reserve( botlist.size() );
 
             for ( const auto& it : itemlist ) {
                 proj->m_EntityList[ ET_ITEM ].emplace_back( it.at( "name" ).get<std::string>().c_str(), it.at( "id" ) );
-            }
-            for ( const auto& it : weaponlist ) {
-                proj->m_EntityList[ ET_WEAPON ].emplace_back( it.at( "name" ).get<std::string>().c_str(), it.at( "id" ) );
             }
             for ( const auto& it : moblist ) {
                 proj->m_EntityList[ ET_MOB ].emplace_back( it.at( "name" ).get<std::string>().c_str(), it.at( "id" ) );
@@ -92,12 +110,9 @@ void CProjectManager::AddToCache( const std::string& path, bool loadJSON, bool b
         }
     } else {
         proj->m_Name = "untitled";
-        proj->m_AssetDirectory = va( "%s%s%cAssets", buildPath ? g_pEditor->m_CurrentPath.c_str() : "", path.c_str(), PATH_SEP );
+        proj->m_AssetDirectory = va( "%s%cAssets", path.c_str(), PATH_SEP );
         proj->m_AssetPath = "Assets";
     }
-
-    m_ProjList[ path ] = proj;
-
     try {
         for ( const auto& mapIterator : std::filesystem::directory_iterator{ proj->m_AssetDirectory } ) {
             filePath = mapIterator.path().string();
@@ -124,20 +139,34 @@ void CProjectManager::New( void )
     count, PATH_SEP ) ) ); count++ )
         ;
     
+    //
+    // create directories
+    //
     if ( !Q_mkdir( path ) ) {
         Error( "[CProjectManager::New] failed to create project directory '%s'", path );
     }
-
+    if ( !Q_mkdir( va( "%s%cConfig", path, PATH_SEP ) ) ) {
+        Error( "[CProjectManager::New] failed to create project directory '%s%cConfig'", path, PATH_SEP );
+    }
+    if ( !Q_mkdir( va( "%s%cAssets", path, PATH_SEP ) ) ) {
+        Error( "[CProjectManager::New] failed to create project directory '%s%cAssets'", path, PATH_SEP );
+    }
+    if ( !Q_mkdir( va( "%s%cAssets%cshaders", path, PATH_SEP, PATH_SEP ) ) ) {
+        Error( "[CProjectManager::New] failed to create project directory '%s%cAssets%cshaders'", path, PATH_SEP, PATH_SEP );
+    }
+    if ( !Q_mkdir( va( "%s%cAssets%cmaps", path, PATH_SEP, PATH_SEP ) ) ) {
+        Error( "[CProjectManager::New] failed to create project directory '%s%cAssets%cshaders'", path, PATH_SEP, PATH_SEP );
+    }
     AddToCache( path );
-
     m_CurrentProject = m_ProjList.find( path )->second;
+
+    InitProjectConfig( path );
 }
 
 void CProjectManager::Save( void ) const
 {
     const char *ospath;
     std::vector<json> itemlist;
-    std::vector<json> weaponlist;
     std::vector<json> moblist;
     std::vector<json> botlist;
     uint32_t i;
@@ -154,7 +183,7 @@ void CProjectManager::Save( void ) const
     }
 
     data["name"] = m_CurrentProject->m_Name;
-    data["assetdirectory"] = m_CurrentProject->m_AssetPath;
+    data["assetdirectory"] = strrchr( m_CurrentProject->m_AssetDirectory.string().c_str(), PATH_SEP );
 
     for ( const auto& it : m_CurrentProject->m_MapList ) {
         data["maplist"].emplace_back( it->name );
@@ -166,14 +195,6 @@ void CProjectManager::Save( void ) const
 
         it["id"] = m_CurrentProject->m_EntityList[ ET_ITEM ][i].m_Id;
         it["name"] = m_CurrentProject->m_EntityList[ ET_ITEM ][i].m_Name;
-    }
-
-    weaponlist.reserve( m_CurrentProject->m_EntityList[ ET_WEAPON ].size() );
-    for ( i = 0; i < m_CurrentProject->m_EntityList[ ET_WEAPON ].size(); i++ ) {
-        json& it = weaponlist.emplace_back();
-
-        it["id"] = m_CurrentProject->m_EntityList[ ET_WEAPON ][i].m_Id;
-        it["name"] = m_CurrentProject->m_EntityList[ ET_WEAPON ][i].m_Name;
     }
 
     moblist.reserve( m_CurrentProject->m_EntityList[ ET_MOB ].size() );
@@ -194,7 +215,6 @@ void CProjectManager::Save( void ) const
 
     data["data_lists"]["itemlist"] = itemlist;
     data["data_lists"]["moblist"] = moblist;
-    data["data_lists"]["weaponlist"] = weaponlist;
     data["data_lists"]["botlist"] = botlist;
 
     file.width( 4 );
@@ -229,10 +249,14 @@ void CProjectManager::SetCurrent( const std::string& name, bool buildPath )
 
     std::unordered_map<std::string, std::shared_ptr<Project>>::iterator it = m_ProjList.find( ospath );
 
-    if ( it == m_ProjList.end() ) {
+    if ( it == m_ProjList.end() || it == NULL ) {
         Log_Printf( "[CProjectManager::SetCurrent] Project '%s' doesn't exist, adding to cache...\n", ospath );
 
-        AddToCache( ospath, true, buildPath );
+        if ( !FolderExists( ospath ) ) {
+            New();
+        } else {
+            AddToCache( ospath, true );
+        }
 
         it = m_ProjList.find( ospath );
     }

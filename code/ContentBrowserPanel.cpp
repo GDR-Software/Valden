@@ -13,8 +13,8 @@ ContentBrowserPanel::~ContentBrowserPanel()
 
 void ContentBrowserPanel::OnAttach( void )
 {
-    m_pDirectoryIcon = new Walnut::Image( va( "%sData/Icons/DirectoryIcon.png", g_pEditor->m_CurrentPath.c_str() ) );
-    m_pFileIcon = new Walnut::Image( va( "%sData/Icons/FileIcon.png", g_pEditor->m_CurrentPath.c_str() ) );
+    m_pDirectoryIcon = new Walnut::Image( va( "%sbitmaps/DirectoryIcon.png", g_pEditor->m_CurrentPath.c_str() ) );
+    m_pFileIcon = new Walnut::Image( va( "%sbitmaps/FileIcon.png", g_pEditor->m_CurrentPath.c_str() ) );
 }
 
 void ContentBrowserPanel::OnDetach( void )
@@ -25,7 +25,7 @@ void ContentBrowserPanel::OnDetach( void )
 
 void ContentBrowserPanel::OnUIRender( void )
 {
-	static float thumbnailSize = 128.0f;
+	static float thumbnailSize = 132.0f;
 	const float cellSize = thumbnailSize;
 	const float panelWidth = ImGui::GetContentRegionAvail().x;
     int columnCount;

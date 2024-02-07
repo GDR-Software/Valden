@@ -1,5 +1,6 @@
 #include "editor.h"
 #include "gui.h"
+#include "misc/cpp/imgui_stdlib.h"
 
 #define SPECULAR_SCALE_RGBGLOSS 0
 #define SPECULAR_SCALE_MS 1
@@ -8,8 +9,9 @@
 #define NORMAL_SCALE_XY 0
 #define NORMAL_SCALE_XY_HEIGHT 1
 
-typedef struct
-{
+constexpr const int null_sides[NUMDIRS] = { 0 };
+
+typedef struct {
 	bool active;
 
 	Walnut::waveForm_t rgbWave;
@@ -18,12 +20,19 @@ typedef struct
 	Walnut::waveForm_t alphaWave;
 	Walnut::alphaGen_t alphaGen;
 
+	Walnut::texCoordGen_t tcGen;
+	Walnut::texMod_t tcMod;
+
+	Walnut::texModInfo_t texModInfo;
+
 	byte constantColor[4];
 
 	int blendFuncSrc;
 	int blendFuncDest;
 
 	uint32_t textureType;
+
+	char texture[MAX_NPATH];
 
 	vec4_t normalScale;
 	vec4_t specularScale;
@@ -133,6 +142,401 @@ static void DrawVec3Control( const char *label, uvec3_t values, float resetValue
 	ImGui::PopID();
 }
 
+void CMapInfoDlg::AddMob( void )
+{
+	if ( !m_bHasAddMobWindow ) {
+		return;
+	}
+	bool isUnique;
+
+	ImGui::Begin( "Add Mob", &m_bHasAddMobWindow, ImGuiWindowFlags_NoCollapse );
+
+	ImGui::TextUnformatted( "Name: " );
+	ImGui::SameLine();
+	ImGui::InputText( "##AddMobName", m_szAddMobName, sizeof(m_szAddMobName) - 1 );
+
+	ImGui::TextUnformatted( "ID: " );
+	ImGui::SameLine();
+	ImGui::InputInt( "##AddMobId", &m_nAddMobId );
+
+	if ( ButtonWithTooltip( "Generate a Mob ID", "automatically generate a unique mob id" ) ) {
+		m_nAddMobId = g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ].size();
+	}
+
+	ImGui::Separator();
+
+	isUnique = true;
+	for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ] ) {
+		if ( it.m_Id == m_nAddMobId || !N_stricmp( it.m_Name.c_str(), m_szAddMobName ) ) {
+			isUnique = false;
+		}
+	}
+
+	if ( !m_szAddMobName[0] || !isUnique ) {
+		ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+	}
+	if ( !isUnique ) {
+		ButtonWithTooltip( "DONE", "mob entity doesn't have a unique name and/or id!" );
+	}
+	else if ( !m_szAddMobName[0] ) {
+		ButtonWithTooltip( "DONE", "mob entity has no name" );
+	}
+	else {
+		if ( ImGui::Button( "DONE" ) ) {
+			Log_Printf( "Adding new mob '%s' to project with ID %i...\n", m_szAddMobName, m_nAddMobId );
+			g_pProjectManager->GetProject()->m_EntityList[ET_MOB].emplace_back( entityInfo_t( m_szAddMobName, m_nAddMobId ) );
+			m_bHasAddMobWindow = false;
+		}	
+	}
+	if ( !m_szAddMobName[0] ) {
+		ImGui::PopStyleColor( 3 );
+	}
+	ImGui::SameLine();
+	if ( ImGui::Button( "CANCEL" ) ) {
+		m_bHasAddMobWindow = false;
+	}
+
+	ImGui::End();
+}
+
+void CMapInfoDlg::AddItem( void )
+{
+	if ( !m_bHasAddItemWindow ) {
+		return;
+	}
+
+	bool isUnique;
+
+	ImGui::Begin( "Add Item", &m_bHasAddItemWindow, ImGuiWindowFlags_NoCollapse );
+
+	ImGui::TextUnformatted( "Name: " );
+	ImGui::SameLine();
+	ImGui::InputText( "##AddItemName", m_szAddItemName, sizeof(m_szAddItemName) - 1 );
+
+	ImGui::TextUnformatted( "ID: " );
+	ImGui::SameLine();
+	ImGui::InputInt( "##AddItemId", &m_nAddItemId );
+
+	if ( ButtonWithTooltip( "Generate an Item ID", "automatically generate a unique item id" ) ) {
+		m_nAddItemId = g_pProjectManager->GetProject()->m_EntityList[ ET_ITEM ].size();
+	}
+
+	ImGui::Separator();
+
+	isUnique = true;
+	for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[ ET_ITEM ] ) {
+		if ( it.m_Id == m_nAddItemId || !N_stricmp( it.m_Name.c_str(), m_szAddItemName ) ) {
+			isUnique = false;
+		}
+	}
+
+	if ( !m_szAddItemName[0] || !isUnique ) {
+		ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+	}
+	if ( !isUnique ) {
+		ButtonWithTooltip( "DONE", "item entity doesn't have a unique name and/or id!" );
+	}
+	else if ( !m_szAddItemName[0] ) {
+		ButtonWithTooltip( "DONE", "item entity has no name" );
+	}
+	else {
+		if ( ImGui::Button( "DONE" ) ) {
+			Log_Printf( "Adding new item '%s' to project with ID %i...\n", m_szAddItemName, m_nAddItemId );
+			g_pProjectManager->GetProject()->m_EntityList[ET_ITEM].emplace_back( entityInfo_t( m_szAddItemName, m_nAddItemId ) );
+			m_bHasAddItemWindow = false;
+		}	
+	}
+	if ( !m_szAddItemName[0] ) {
+		ImGui::PopStyleColor( 3 );
+	}
+	ImGui::SameLine();
+	if ( ImGui::Button( "CANCEL" ) ) {
+		m_bHasAddItemWindow = false;
+	}
+
+	ImGui::End();
+}
+
+void CMapInfoDlg::AddBot( void )
+{
+	if ( !m_bHasAddBotWindow ) {
+		return;
+	}
+
+	bool isUnique;
+
+	ImGui::Begin( "Add Bot", &m_bHasAddBotWindow, ImGuiWindowFlags_NoCollapse );
+
+	ImGui::TextUnformatted( "Name: " );
+	ImGui::SameLine();
+	ImGui::InputText( "##AddBotName", m_szAddBotName, sizeof(m_szAddBotName) - 1 );
+
+	ImGui::TextUnformatted( "ID: " );
+	ImGui::SameLine();
+	ImGui::InputInt( "##AddBotId", &m_nAddBotId );
+
+	if ( ButtonWithTooltip( "Generate a Bot ID", "automatically generate a unique bot id" ) ) {
+		m_nAddBotId = g_pProjectManager->GetProject()->m_EntityList[ ET_BOT ].size();
+	}
+
+	ImGui::Separator();
+
+	isUnique = true;
+	for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[ ET_BOT ] ) {
+		if ( it.m_Id == m_nAddBotId || !N_stricmp( it.m_Name.c_str(), m_szAddBotName ) ) {
+			isUnique = false;
+		}
+	}
+
+	if ( !m_szAddBotName[0] || !isUnique ) {
+		ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+	}
+	if ( !isUnique ) {
+		ButtonWithTooltip( "DONE", "bot entity doesn't have a unique name and/or id!" );
+	}
+	else if ( !m_szAddBotName[0] ) {
+		ButtonWithTooltip( "DONE", "bot entity has no name" );
+	}
+	else {
+		if ( ImGui::Button( "DONE" ) ) {
+			Log_Printf( "Adding new bot '%s' to project with ID %i...\n", m_szAddBotName, m_nAddBotId );
+			g_pProjectManager->GetProject()->m_EntityList[ET_MOB].emplace_back( entityInfo_t( m_szAddBotName, m_nAddBotId ) );
+			m_bHasAddBotWindow = false;
+		}	
+	}
+	if ( !m_szAddBotName[0] ) {
+		ImGui::PopStyleColor( 3 );
+	}
+	ImGui::SameLine();
+	if ( ImGui::Button( "CANCEL" ) ) {
+		m_bHasAddBotWindow = false;
+	}
+
+	ImGui::End();
+}
+
+void CMapInfoDlg::ModifyMob( void )
+{
+	if ( !m_bHasEditMobWindow ) {
+		return;
+	}
+
+	bool isUnique;
+
+	ImGui::Begin( "Modify Mob", &m_bHasEditMobWindow, ImGuiWindowFlags_NoCollapse );
+
+	ImGui::TextUnformatted( "Name: " );
+	ImGui::SameLine();
+	ImGui::InputText( "##ModifyMobName", m_szEditMobName, sizeof(m_szEditMobName) - 1 );
+
+	ImGui::Separator();
+
+	isUnique = true;
+	for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ] ) {
+		if ( !N_stricmp( it.m_Name.c_str(), m_szEditMobName ) ) {
+			isUnique = false;
+		}
+	}
+
+	if ( !m_szEditMobName[0] || !isUnique ) {
+		ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+	}
+	if ( !isUnique ) {
+		ButtonWithTooltip( "DONE", "mob entity doesn't have a unique name!" );
+	}
+	else if ( !m_szEditMobName[0] ) {
+		ButtonWithTooltip( "DONE", "mob entity has no name" );
+	}
+	else {
+		if ( ImGui::Button( "DONE" ) ) {
+			m_bHasEditMobWindow = false;
+			m_pCurrentMob->m_Name = m_szEditMobName;
+		}	
+	}
+	if ( !m_szEditMobName[0] ) {
+		ImGui::PopStyleColor( 3 );
+	}
+	ImGui::SameLine();
+	if ( ImGui::Button( "CANCEL" ) ) {
+		m_bHasEditMobWindow = false;
+	}
+	ImGui::SameLine();
+	if ( ImGui::Button( "DELETE" ) ) {
+		m_bHasEditMobWindow = false;
+		g_pProjectManager->GetProject()->m_EntityList[ ET_ITEM ].erase( m_pCurrentMob );
+	}
+
+	ImGui::End();
+}
+
+void CMapInfoDlg::ModifyItem( void )
+{
+	if ( !m_bHasEditItemWindow ) {
+		return;
+	}
+
+	bool isUnique;
+
+	ImGui::Begin( "Modify Item", &m_bHasEditItemWindow, ImGuiWindowFlags_NoCollapse );
+
+	ImGui::TextUnformatted( "Name: " );
+	ImGui::SameLine();
+	ImGui::InputText( "##ModifyItemName", m_szEditItemName, sizeof(m_szEditItemName) - 1 );
+
+	ImGui::Separator();
+
+	isUnique = true;
+	for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[ ET_ITEM ] ) {
+		if ( !N_stricmp( it.m_Name.c_str(), m_szEditItemName ) ) {
+			isUnique = false;
+		}
+	}
+
+	if ( !m_szEditItemName[0] || !isUnique ) {
+		ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+	}
+	if ( !isUnique ) {
+		ButtonWithTooltip( "DONE", "item entity doesn't have a unique name!" );
+	}
+	else if ( !m_szEditItemName[0] ) {
+		ButtonWithTooltip( "DONE", "item entity has no name" );
+	}
+	else {
+		if ( ImGui::Button( "DONE" ) ) {
+			m_bHasEditItemWindow = false;
+			m_pCurrentItem->m_Name = m_szEditItemName;
+			m_pCurrentItem->m_Id = m_nEditItemId;
+		}	
+	}
+	if ( !m_szEditItemName[0] ) {
+		ImGui::PopStyleColor( 3 );
+	}
+	ImGui::SameLine();
+	if ( ImGui::Button( "CANCEL" ) ) {
+		m_bHasEditItemWindow = false;
+	}
+	ImGui::SameLine();
+	if ( ImGui::Button( "DELETE" ) ) {
+		g_pProjectManager->GetProject()->m_EntityList[ ET_ITEM ].erase( m_pCurrentItem );
+		m_bHasEditItemWindow = false;
+	}
+
+	ImGui::End();
+}
+
+void CMapInfoDlg::ModifyBot( void )
+{
+	if ( !m_bHasEditBotWindow ) {
+		return;
+	}
+
+	ImGui::Begin( "Modify Bot", &m_bHasEditBotWindow, ImGuiWindowFlags_NoCollapse );
+
+	ImGui::TextUnformatted( "Name: " );
+	ImGui::SameLine();
+	ImGui::InputText( "##ModifyItemName", m_szEditItemName, sizeof(m_szEditItemName) - 1 );
+
+	ImGui::End();
+}
+
+void CMapInfoDlg::ProjectSettingsDlg( void )
+{
+	if ( !m_bHasProjectWindow ) {
+		return;
+	}
+
+	if ( ImGui::Begin( "Project Settings", &m_bHasProjectWindow, ImGuiWindowFlags_NoCollapse ) ) {
+		if ( ImGui::IsWindowFocused() ) {
+			g_pEditor->m_bWindowFocused = true;
+			g_pEditor->m_InputFocus = EditorInputFocus::ToolFocus;
+		}
+
+		ImGui::TextUnformatted( "Name: " );
+		ImGui::SameLine();
+		if ( ImGui::InputText( "##ProjectName", &g_pProjectManager->GetProject()->m_Name, ImGuiInputTextFlags_EnterReturnsTrue ) ) {
+			g_pEditor->m_bProjectModified = true;
+		}
+
+		if ( ImGui::Button( "Add Map To Project" ) ) {
+			ImGuiFileDialog::Instance()->OpenDialog( "AddMapToProjectDlg", "Open Map File", ".map, .bmf, Map Files (*.map *.bmf){*.map, *.bmf}",
+				g_pEditor->m_RecentDirectory );
+		}
+
+		if ( ImGui::BeginCombo( "Map List", mapData->name ) ) {
+
+			for ( auto it : g_pProjectManager->GetProject()->m_MapList ) {
+				if ( !it->name[0] ) {
+					continue;
+				}
+				if ( ImGui::Selectable( it->name, ( mapData == it ) ) ) {
+					if ( ::ConfirmModified() ) {
+						g_pMapInfoDlg->SetCurrent( it );
+					}
+				}
+			}
+
+			ImGui::EndCombo();
+		}
+
+		if ( ImGui::BeginCombo( "Mob List", "Mob List" ) ) {
+			std::vector<entityInfo_t>& entityList = g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ];
+			for ( auto it = entityList.begin(); it != entityList.end(); it++ ) {
+				if ( ImGui::Selectable( va( "%s (ID: %i)", it->m_Name.c_str(), it->m_Id ), ( m_pCurrentMob == it ) ) ) {
+					m_pCurrentMob = it;
+					m_bHasEditMobWindow = true;
+				}
+			}
+			if ( ImGui::Button( "Add Mob" ) ) {
+				m_bHasAddMobWindow = true;
+			}
+
+			ImGui::EndCombo();
+		}
+
+		if ( ImGui::BeginCombo( "Item List", "Item List" ) ) {
+			std::vector<entityInfo_t>& entityList = g_pProjectManager->GetProject()->m_EntityList[ ET_ITEM ];
+			for ( auto it = entityList.begin(); it != entityList.end(); it++ ) {
+				if ( ImGui::Selectable( va( "%s (ID: %i)", it->m_Name.c_str(), it->m_Id ), ( m_pCurrentItem == it ) ) ) {
+					m_pCurrentItem = it;
+					m_bHasEditItemWindow = true;
+				}
+			}
+			if ( ImGui::Button( "Add Item" ) ) {
+				m_bHasAddItemWindow = true;
+			}
+
+			ImGui::EndCombo();
+		}
+
+		if ( ImGui::BeginCombo( "Bot List", "Bot List" ) ) {
+			std::vector<entityInfo_t>& entityList = g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ];
+			for ( auto it = entityList.begin(); it != entityList.end(); it++ ) {
+				if ( ImGui::Selectable( va( "%s (ID: %i)", it->m_Name.c_str(), it->m_Id ), ( m_pCurrentBot == it ) ) ) {
+					m_pCurrentBot = it;
+					m_bHasEditBotWindow = true;
+				}
+			}
+			if ( ImGui::Button( "Add Bot" ) ) {
+				m_bHasAddBotWindow = true;
+			}
+
+			ImGui::EndCombo();
+		}
+
+		ImGui::End();
+	}
+}
+
 static const char *EntityTypeToString( entitytype_t type )
 {
     switch ( type ) {
@@ -140,7 +544,6 @@ static const char *EntityTypeToString( entitytype_t type )
     case ET_MOB: return "Mob";
     case ET_BOT: return "Bot";
     case ET_ITEM: return "Item";
-    case ET_WEAPON: return "Weapon";
     default:
         break;
     };
@@ -213,7 +616,7 @@ void CMapInfoDlg::SetCurrent( mapData_t *data )
 			}
 		}
 	}
-	if ( !present ) {
+	if ( !present && data && data->name[0] ) {
 		g_pEditor->m_RecentFiles.emplace_back( data->name );
 	}
 
@@ -226,6 +629,12 @@ void CMapInfoDlg::SetCurrent( mapData_t *data )
 
 static void ShaderEdit( void );
 
+static inline void ImGui_Quad_TexCoords( const float texcoords[4][2], ImVec2& min, ImVec2& max )
+{
+    min = { texcoords[3][0], texcoords[3][1] };
+    max = { texcoords[1][0], texcoords[1][1] };
+}
+
 void CMapInfoDlg::Draw( void )
 {
     char mapnameTemp[MAX_NPATH];
@@ -234,93 +643,214 @@ void CMapInfoDlg::Draw( void )
     const ImGuiTreeNodeFlags treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth
                                                 | ImGuiTreeNodeFlags_FramePadding;
 
-	if ( ImGui::BeginPopup( "TileMode" ) ) {
-		const int x = g_pMapDrawer->m_nTileSelectX;
-		const int y = g_pMapDrawer->m_nTileSelectY;
 
-		ImGui::Text( "Editing Tile At %ix%i", x, y );
-		if ( mapData->tiles[y * mapData->width + x].flags & TILETYPE_CHECKPOINT ) {
-			ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.5f, 0.5f, 0.5f, 1.0f ) );
-		}
-		if ( ImGui::Button( "Set Checkpoint" ) ) {
-			mapData->tiles[y * mapData->width + x].flags |= TILETYPE_CHECKPOINT;
-			m_bMapModified = true;
-			m_bMapNameUpdated = false;
-		}
-		if ( mapData->tiles[y * mapData->width + x].flags & TILETYPE_CHECKPOINT ) {
-			ImGui::PopStyleColor();
-		}
+	AddMob();
+	AddItem();
+	AddBot();
 
-		if ( mapData->tiles[y * mapData->width + x].flags & TILETYPE_SPAWN ) {
-			ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.5f, 0.5f, 0.5f, 1.0f ) );
-		}
-		if ( ImGui::Button( "Set Checkpoint" ) ) {
-			mapData->tiles[y * mapData->width + x].flags |= TILETYPE_SPAWN;
-			m_bMapModified = true;
-			m_bMapNameUpdated = false;
-		}
-		if ( mapData->tiles[y * mapData->width + x].flags & TILETYPE_SPAWN ) {
-			ImGui::PopStyleColor();
-		}
+	ModifyMob();
+	ModifyItem();
+	ModifyBot();
 
+	if ( m_bHasTileWindow ) {
+		if ( ImGui::Begin( "##TileMode", &m_bHasTileWindow, ImGuiWindowFlags_AlwaysAutoResize  ) ) {
+			const int x = g_pMapDrawer->m_nTileSelectX;
+			const int y = g_pMapDrawer->m_nTileSelectY;
 
-		if ( ImGui::Button( "CANCEL" ) ) {
-			ImGui::CloseCurrentPopup();
+			ImGui::Text( "Editing Tile At %ix%i", x, y );
+
+			if ( ImGui::CollapsingHeader( "Set Tile Sprite" ) ) {
+				uint32_t y, x;
+				tile2d_sprite_t *tile;
+				const Walnut::Image *texture = mapData->textures[Walnut::TB_DIFFUSEMAP];
+				ImVec2 min, max;
+
+				if ( !texture ) {
+					ImGui::TextUnformatted( "No Tileset in Use" );
+				}
+				else {
+					for ( y = 0; y < mapData->tileset.tileCountY; y++ ) {
+						for ( x = 0; x < mapData->tileset.tileCountX; x++ ) {
+							tile = &mapData->texcoords[ y * mapData->tileset.tileCountX + x ];
+							ImGui_Quad_TexCoords( tile->uv, min, max );
+
+							ImGui::PushID( (uintptr_t)tile );
+							if ( ImGui::ImageButtonEx( texture->GetRendererID(), (ImTextureID)(uintptr_t)texture->GetID(),
+								{ (float)texture->GetWidth(), (float)texture->GetHeight() }, min, max, { 0, 0, 0, 1 }, { 0, 0, 0, 0 } ) )
+							{
+								maptile_t *t = &mapData->tiles[ y * mapData->width + x ];
+								memcpy( t->texcoords, tile->uv, sizeof(t->texcoords) );
+								t->index = y * mapData->tileset.tileCountX + x;
+							}
+							ImGui::PopID();
+							ImGui::SameLine();
+						}
+						ImGui::NewLine();
+					}
+				}
+			}
+
+			if ( ImGui::CollapsingHeader( "Tile Physics Sides" ) ) {
+				ImGui::SeparatorText( "Sides" );
+		        ImGui::BeginTable( " ", 3 );
+		        {
+		            const ImVec2 buttonSize = { 86, 48 };
+
+		            ImGui::TableNextColumn();
+		            if ( ImGui::Button( "North West", buttonSize ) ) {
+		                mapData->tiles[ y * mapData->width + x ].sides[DIR_NORTH_WEST] = true;
+						m_bMapModified = true;
+						m_bMapNameUpdated = false;
+		            }
+		            ImGui::TableNextColumn();
+		            if ( ImGui::Button( "North", buttonSize ) ) {
+		                mapData->tiles[ y * mapData->width + x ].sides[DIR_NORTH] = true;
+						m_bMapModified = true;
+						m_bMapNameUpdated = false;
+		            }
+		            ImGui::TableNextColumn();
+		            if ( ImGui::Button( "North East", buttonSize ) ) {
+		                mapData->tiles[ y * mapData->width + x ].sides[DIR_NORTH_EAST] = true;
+						m_bMapModified = true;
+						m_bMapNameUpdated = false;
+		            }
+		            ImGui::TableNextColumn();
+		            if ( ImGui::Button( "West", buttonSize ) ) {
+		                mapData->tiles[ y * mapData->width + x ].sides[DIR_WEST] = true;
+						m_bMapModified = true;
+						m_bMapNameUpdated = false;
+		            }
+		            ImGui::TableNextColumn();
+		            if ( ImGui::Button( "Inside", buttonSize ) ) {
+						mapData->tiles[ y * mapData->width + x ].sides[NUMDIRS] = true;
+						m_bMapModified = true;
+						m_bMapNameUpdated = false;
+		            }
+		            ImGui::TableNextColumn();
+		            if ( ImGui::Button( "East", buttonSize ) ) {
+						mapData->tiles[ y * mapData->width + x ].sides[DIR_EAST] = true;
+						m_bMapModified = true;
+						m_bMapNameUpdated = false;
+		            }
+		            ImGui::TableNextColumn();
+		            if ( ImGui::Button( "South West", buttonSize ) ) {
+		                mapData->tiles[ y * mapData->width + x ].sides[DIR_SOUTH_WEST] = true;
+						m_bMapModified = true;
+						m_bMapNameUpdated = false;
+		            }
+		            ImGui::TableNextColumn();
+		            if ( ImGui::Button( "South", buttonSize ) ) {
+		                mapData->tiles[ y * mapData->width + x ].sides[DIR_SOUTH] = true;
+						m_bMapModified = true;
+						m_bMapNameUpdated = false;
+		            }
+		            ImGui::TableNextColumn();
+		            if ( ImGui::Button( "South East", buttonSize ) ) {
+		                mapData->tiles[ y * mapData->width + x ].sides[DIR_SOUTH_EAST] = true;
+						m_bMapModified = true;
+						m_bMapNameUpdated = false;
+		            }
+		        }
+		        ImGui::EndTable();
+
+		        if ( memcmp( mapData->tiles[ y * mapData->width + x ].sides, null_sides, sizeof(null_sides) ) != 0 ) {
+		            if ( ImGui::Button( "Clear Collision Sides" ) ) {
+		                memset( mapData->tiles[ y * mapData->width + x ].sides, 0, sizeof(mapData->tiles[ y * mapData->width + x ].sides) );
+		            }
+		        }
+			}
+
+			if ( mapData->tiles[y * mapData->width + x].flags & TILETYPE_CHECKPOINT ) {
+				ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.5f, 0.5f, 0.5f, 1.0f ) );
+			}
+			if ( ImGui::Button( "Set Checkpoint" ) ) {
+				mapData->tiles[y * mapData->width + x].flags |= TILETYPE_CHECKPOINT;
+				m_bMapModified = true;
+				m_bMapNameUpdated = false;
+			}
+			if ( mapData->tiles[y * mapData->width + x].flags & TILETYPE_CHECKPOINT ) {
+				ImGui::PopStyleColor();
+			}
+
+			if ( mapData->tiles[y * mapData->width + x].flags & TILETYPE_SPAWN ) {
+				ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.5f, 0.5f, 0.5f, 1.0f ) );
+			}
+			if ( ImGui::Button( "Set Checkpoint" ) ) {
+				mapData->tiles[y * mapData->width + x].flags |= TILETYPE_SPAWN;
+				m_bMapModified = true;
+				m_bMapNameUpdated = false;
+			}
+			if ( mapData->tiles[y * mapData->width + x].flags & TILETYPE_SPAWN ) {
+				ImGui::PopStyleColor();
+			}
+
+			if ( ImGui::Button( "Done" ) ) {
+				g_pMapDrawer->m_bTileSelectOn = false;
+				m_bHasTileWindow = false;
+			}
+
+			if ( ImGui::Button( "CANCEL" ) ) {
+				m_bHasTileWindow = false;
+			}
+			ImGui::End();
 		}
-		ImGui::EndPopup();
 	}
 
-	ShaderEdit();
-
-	if ( ImGui::BeginPopup( "CheckpointEdit", ImGuiWindowFlags_AlwaysAutoResize ) ) {
-		ImGui::SetWindowFocus();
-		ImGui::SeparatorText( va( "checkpoint %u", (unsigned)( m_pCheckpointEdit - mapData->checkpoints ) ) );
-		DrawVec3Control( "position", m_pCheckpointEdit->xyz );
-		if ( ImGui::Button( "delete" ) ) {
-			mapData->numCheckpoints--;
-			m_bMapModified = true;
-			ImGui::CloseCurrentPopup();
+	if ( m_bHasCheckpointWindow ) {
+		if ( ImGui::Begin( "Editing Checkpoint", &m_bHasCheckpointWindow, ImGuiWindowFlags_AlwaysAutoResize ) ) {
+			ImGui::SetWindowFocus();
+			ImGui::SeparatorText( va( "checkpoint %u", (unsigned)( m_pCheckpointEdit - mapData->checkpoints ) ) );
+			DrawVec3Control( "position", m_pCheckpointEdit->xyz );
+			if ( ImGui::Button( "delete" ) ) {
+				mapData->numCheckpoints--;
+				m_bMapModified = true;
+				m_bHasCheckpointWindow = false;
+			}
+			if ( ImGui::Button( "CANCEL" ) ) {
+				m_bHasCheckpointWindow = false;
+			}
+			ImGui::End();
 		}
-		if ( ImGui::Button( "CANCEL" ) ) {
-			ImGui::CloseCurrentPopup();
-		}
-		ImGui::EndPopup();
 	}
 
-	if ( ImGui::BeginPopup( "SpawnEdit", ImGuiWindowFlags_AlwaysAutoResize ) ) {
-		ImGui::SetWindowFocus();
-		ImGui::SeparatorText( va( "spawn %u", (unsigned)( m_pSpawnEdit - mapData->spawns ) ) );
-		DrawVec3Control( "position", m_pSpawnEdit->xyz );
-		if ( ImGui::Button( "delete" ) ) {
-			mapData->numSpawns--;
-			m_bMapModified = true;
-			ImGui::CloseCurrentPopup();
+	if ( m_bHasSpawnWindow ) {
+		if ( ImGui::Begin( "Editing Spawn", &m_bHasSpawnWindow, ImGuiWindowFlags_AlwaysAutoResize ) ) {
+			ImGui::SetWindowFocus();
+			ImGui::SeparatorText( va( "spawn %u", (unsigned)( m_pSpawnEdit - mapData->spawns ) ) );
+			DrawVec3Control( "position", m_pSpawnEdit->xyz );
+			if ( ImGui::Button( "delete" ) ) {
+				mapData->numSpawns--;
+				m_bMapModified = true;
+				m_bHasSpawnWindow = false;
+			}
+			if ( ImGui::Button( "CANCEL" ) ) {
+				m_bHasSpawnWindow = false;
+			}
+			ImGui::End();
 		}
-		if ( ImGui::Button( "CANCEL" ) ) {
-			ImGui::CloseCurrentPopup();
-		}
-		ImGui::EndPopup();
 	}
 
-	if ( ImGui::BeginPopup( "LightEdit", ImGuiWindowFlags_AlwaysAutoResize ) ) {
-		ImGui::SetWindowFocus();
-		ImGui::SeparatorText( va( "light %u", (unsigned)( m_pLightEdit - mapData->lights ) ) );
-		DrawVec3Control( "position", m_pLightEdit->origin );
-		if ( ImGui::SliderFloat( "brightness", &m_pLightEdit->range, 0.5f, 200.0f ) ) {
-			m_bMapModified = true;
+	if ( m_bHasLightWindow ) {
+		if ( ImGui::Begin( "Editing Light", &m_bHasLightWindow, ImGuiWindowFlags_AlwaysAutoResize ) ) {
+			ImGui::SetWindowFocus();
+			ImGui::SeparatorText( va( "light %u", (unsigned)( m_pLightEdit - mapData->lights ) ) );
+			DrawVec3Control( "position", m_pLightEdit->origin );
+			if ( ImGui::SliderFloat( "brightness", &m_pLightEdit->range, 0.5f, 200.0f ) ) {
+				m_bMapModified = true;
+			}
+			if ( ImGui::ColorEdit3( "color", m_pLightEdit->color ) ) {
+				m_bMapModified = true;
+			}
+			if ( ImGui::Button( "delete" ) ) {
+				mapData->numLights--;
+				m_bMapModified = true;
+				m_bHasLightWindow = false;
+			}
+			if ( ImGui::Button( "CANCEL" ) ) {
+				m_bHasLightWindow = false;
+			}
+			ImGui::End();
 		}
-		if ( ImGui::ColorEdit3( "color", m_pLightEdit->color ) ) {
-			m_bMapModified = true;
-		}
-		if ( ImGui::Button( "delete" ) ) {
-			mapData->numLights--;
-			m_bMapModified = true;
-			ImGui::CloseCurrentPopup();
-		}
-		if ( ImGui::Button( "CANCEL" ) ) {
-			ImGui::CloseCurrentPopup();
-		}
-		ImGui::EndPopup();
 	}
 	
 	if ( ImGui::BeginPopupModal( "Map Name Error" ) ) {
@@ -426,11 +956,11 @@ void CMapInfoDlg::Draw( void )
 		for ( i = 0; i < mapData->numLights; i++ ) {
 			ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, ImVec2( 4, 4 ) );
 
-			open = ImGui::TreeNodeEx( (void *)(uintptr_t)&mapData->lights[i], treeNodeFlags, "spawn %u", i );
+			open = ImGui::TreeNodeEx( (void *)(uintptr_t)&mapData->lights[i], treeNodeFlags, "light %u", i );
 			ImGui::SameLine();
-			if ( ImGui::Button( "+" ) ) {
+			if ( ButtonWithTooltip( "+", "Edit Light" ) ) {
 				m_pLightEdit = &mapData->lights[i];
-				ImGui::OpenPopup( "LightEdit" );
+				m_bHasLightWindow = true;
 			}
 
 			if ( open ) {
@@ -446,9 +976,9 @@ void CMapInfoDlg::Draw( void )
 
 			open = ImGui::TreeNodeEx( (void *)(uintptr_t)&mapData->checkpoints[i], treeNodeFlags, "checkpoint %u", i );
 			ImGui::SameLine();
-			if ( ImGui::Button( "+" ) ) {
+			if ( ButtonWithTooltip( "+", "Edit Checkpoint" ) ) {
 				m_pCheckpointEdit = &mapData->checkpoints[i];
-				ImGui::OpenPopup( "CheckpointEdit" );
+				m_bHasCheckpointWindow = true;
 			}
 
 			if ( open ) {
@@ -464,9 +994,9 @@ void CMapInfoDlg::Draw( void )
 
 			open = ImGui::TreeNodeEx( (void *)(uintptr_t)&mapData->spawns[i], treeNodeFlags, "spawn %u", i );
 			ImGui::SameLine();
-			if ( ImGui::Button( "+" ) ) {
+			if ( ButtonWithTooltip( "+", "Edit Spawn" ) ) {
 				m_pSpawnEdit = &mapData->spawns[i];
-				ImGui::OpenPopup( "SpawnEdit" );
+				m_bHasSpawnWindow = true;
 			}
 
 			if ( open ) {
@@ -488,10 +1018,6 @@ void CMapInfoDlg::Draw( void )
 				if ( ImGui::BeginCombo( "Entity Type", EntityTypeToString( (entitytype_t)m_nSelectedSpawnEntityType ) ) ) {
 					if ( ImGui::Selectable( "item", ( m_nSelectedSpawnEntityType == ET_ITEM ) ) ) {
 						m_nSelectedSpawnEntityType = ET_ITEM;
-						m_bMapModified = true;
-					}
-					if ( ImGui::Selectable( "weapon", ( m_nSelectedSpawnEntityType == ET_WEAPON ) ) ) {
-						m_nSelectedSpawnEntityType = ET_WEAPON;
 						m_bMapModified = true;
 					}
 					if ( ImGui::Selectable( "mob", ( m_nSelectedSpawnEntityType == ET_MOB ) ) ) {
@@ -584,15 +1110,15 @@ void CMapInfoDlg::Draw( void )
 		if ( !mapData->textures[Walnut::TB_DIFFUSEMAP] ) {
 			ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.5f, 0.5f, 0.5f, 1.0f ) );
 		}
-		if ( ImGui::Button( "Edit Shader" ) && mapData->textures[Walnut::TB_DIFFUSEMAP] ) {
-			ImGui::OpenPopup( "EditShader" );
-		}
+//		if ( ImGui::Button( "Edit Shader" ) && mapData->textures[Walnut::TB_DIFFUSEMAP] ) {
+//			ImGui::OpenPopup( "EditShader" );
+//		}
 		if ( !mapData->textures[Walnut::TB_DIFFUSEMAP] ) {
 			ImGui::PopStyleColor();
 		}
 
 		if ( m_bTilesetModified ) {
-			if ( ImGui::Button( "Build Tileset" ) ) {
+			if ( ButtonWithTooltip( "Build Tileset", "Calculate tile data for the engine to process" ) ) {
                 m_bTilesetModified = false;
 				Map_BuildTileset();
 			}
@@ -686,32 +1212,27 @@ inline const char *TCModToString( Walnut::texMod_t tcMod ) {
 
 static void ShaderEdit( void )
 {
-	if ( ImGui::Begin( va( "Edit Shader %s",  ), NULL, ImGuiWindowFlags_None ) ) {
-		ImGui::SeparatorText( "Edit Shader" );
-
+	if ( ImGui::Begin( va( "Edit Shader %s", g_pMapInfoDlg->m_szCurrentShader ), NULL, ImGuiWindowFlags_None ) ) {
 		for ( uint32_t i = 0; i < MAX_SHADER_STAGES; i++ ) {
 			if ( ImGui::CollapsingHeader( va( "Shader Stage %i", i ) ) ) {
 				if ( ImGui::Checkbox( "Active", &shaderEdit.stages[i].active ) ) {
-					g_pMapInfoDlg->m_bMapModified = true;
-					g_pMapInfoDlg->m_bTilesetModified = true;
+					g_pMapInfoDlg->SetModified( true, true );
 				}
+
 				if ( ImGui::BeginCombo( "Specular Scale Type", SpecularScaleTypeString( shaderEdit.stages[i].specularScaleType ) ) ) {
 					if ( ImGui::Selectable( "<Metallic> <Smoothness> (Requires r_pbr == 1 in game)",
 						shaderEdit.stages[i].specularScaleType == SPECULAR_SCALE_MS ) )
 					{
 						shaderEdit.stages[i].specularScaleType =  SPECULAR_SCALE_MS;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					if ( ImGui::Selectable( "<r> <g> <b>", shaderEdit.stages[i].specularScaleType == SPECULAR_SCALE_RGB ) ) {
 						shaderEdit.stages[i].specularScaleType = SPECULAR_SCALE_RGB;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					if ( ImGui::Selectable( "<r> <g> <b> <gloss>", shaderEdit.stages[i].specularScaleType == SPECULAR_SCALE_RGBGLOSS ) ) {
 						shaderEdit.stages[i].specularScaleType = SPECULAR_SCALE_RGBGLOSS;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					ImGui::EndCombo();
 				}
@@ -720,13 +1241,11 @@ static void ShaderEdit( void )
 				if ( ImGui::BeginCombo( "Normal Scale Type", NormalScaleTypeString( shaderEdit.stages[i].normalScaleType ) ) ) {
 					if ( ImGui::Selectable( "<X> <Y>", shaderEdit.stages[i].normalScaleType == NORMAL_SCALE_XY ) ) {
 						shaderEdit.stages[i].normalScaleType = NORMAL_SCALE_XY;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					if ( ImGui::Selectable( "<X> <Y> <Height>", shaderEdit.stages[i].normalScaleType == NORMAL_SCALE_XY_HEIGHT ) ) {
 						shaderEdit.stages[i].normalScaleType = NORMAL_SCALE_XY_HEIGHT;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					ImGui::EndCombo();
 				}
@@ -735,74 +1254,154 @@ static void ShaderEdit( void )
 					
 					if ( ImGui::Selectable( "Waveform", ( shaderEdit.stages[i].rgbGen == Walnut::CGEN_WAVEFORM ) ) ) {
 						shaderEdit.stages[i].rgbGen = Walnut::CGEN_WAVEFORM;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					if ( ImGui::Selectable( "Constant", ( shaderEdit.stages[i].rgbGen == Walnut::CGEN_CONST ) ) ) {
 						shaderEdit.stages[i].rgbGen = Walnut::CGEN_CONST;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					if ( ImGui::Selectable( "Identity", ( shaderEdit.stages[i].rgbGen == Walnut::CGEN_IDENTITY ) ) ) {
 						shaderEdit.stages[i].rgbGen = Walnut::CGEN_IDENTITY;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					if ( ImGui::Selectable( "Identity Lighting", ( shaderEdit.stages[i].rgbGen == Walnut::CGEN_IDENTITY_LIGHTING ) ) ) {
 						shaderEdit.stages[i].rgbGen = Walnut::CGEN_IDENTITY_LIGHTING;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					if ( ImGui::Selectable( "Entity", ( shaderEdit.stages[i].rgbGen == Walnut::CGEN_ENTITY ) ) ) {
 						shaderEdit.stages[i].rgbGen = Walnut::CGEN_ENTITY;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					if ( ImGui::Selectable( "One Minus Entity", ( shaderEdit.stages[i].rgbGen == Walnut::CGEN_ONE_MINUS_ENTITY ) ) ) {
 						shaderEdit.stages[i].rgbGen = Walnut::CGEN_ONE_MINUS_ENTITY;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					if ( ImGui::Selectable( "One Minus Vertex", ( shaderEdit.stages[i].rgbGen == Walnut::CGEN_ONE_MINUS_VERTEX ) ) ) {
 						shaderEdit.stages[i].rgbGen = Walnut::CGEN_ONE_MINUS_VERTEX;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					if ( ImGui::Selectable( "Vertex", ( shaderEdit.stages[i].rgbGen == Walnut::CGEN_VERTEX ) ) ) {
 						shaderEdit.stages[i].rgbGen = Walnut::CGEN_VERTEX;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					if ( ImGui::Selectable( "Exact Vertex", ( shaderEdit.stages[i].rgbGen == Walnut::CGEN_EXACT_VERTEX ) ) ) {
 						shaderEdit.stages[i].rgbGen = Walnut::CGEN_EXACT_VERTEX;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					if ( ImGui::Selectable( "Exact Vertex Lighting", ( shaderEdit.stages[i].rgbGen == Walnut::CGEN_EXACT_VERTEX_LIT ) ) ) {
 						shaderEdit.stages[i].rgbGen = Walnut::CGEN_EXACT_VERTEX_LIT;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					if ( ImGui::Selectable( "Vertex Lighting", ( shaderEdit.stages[i].rgbGen == Walnut::CGEN_VERTEX_LIT ) ) ) {
 						shaderEdit.stages[i].rgbGen = Walnut::CGEN_VERTEX_LIT;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 					if ( ImGui::Selectable( "Diffuse Lighting", ( shaderEdit.stages[i].rgbGen == Walnut::CGEN_LIGHTING_DIFFUSE ) ) ) {
 						shaderEdit.stages[i].rgbGen = Walnut::CGEN_LIGHTING_DIFFUSE;
-						g_pMapInfoDlg->m_bMapModified = true;
-						g_pMapInfoDlg->m_bTilesetModified = true;
+						g_pMapInfoDlg->SetModified( true, true );
 					}
 
 					ImGui::EndCombo();
 				}
 				if ( ImGui::BeginCombo( "Alpha Gen", AlphaGenToString( shaderEdit.stages[i].alphaGen ) ) ) {
+					if ( ImGui::Selectable( "Constant", ( shaderEdit.stages[i].alphaGen == Walnut::AGEN_CONST ) ) ) {
+						shaderEdit.stages[i].alphaGen = Walnut::AGEN_CONST;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Entity", ( shaderEdit.stages[i].alphaGen == Walnut::AGEN_ENTITY ) ) ) {
+						shaderEdit.stages[i].alphaGen = Walnut::AGEN_ENTITY;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Identity", ( shaderEdit.stages[i].alphaGen == Walnut::AGEN_IDENTITY ) ) ) {
+						shaderEdit.stages[i].alphaGen = Walnut::AGEN_IDENTITY;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Specular Lighting", ( shaderEdit.stages[i].alphaGen == Walnut::AGEN_LIGHTING_SPECULAR ) ) ) {
+						shaderEdit.stages[i].alphaGen = Walnut::AGEN_LIGHTING_SPECULAR;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "One Minus Entity", ( shaderEdit.stages[i].alphaGen == Walnut::AGEN_ONE_MINUS_ENTITY ) ) ) {
+						shaderEdit.stages[i].alphaGen = Walnut::AGEN_ONE_MINUS_ENTITY;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "One Minus Vertex", ( shaderEdit.stages[i].alphaGen == Walnut::AGEN_ONE_MINUS_VERTEX ) ) ) {
+						shaderEdit.stages[i].alphaGen = Walnut::AGEN_ONE_MINUS_VERTEX;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Skip", ( shaderEdit.stages[i].alphaGen == Walnut::AGEN_SKIP ) ) ) {
+						shaderEdit.stages[i].alphaGen = Walnut::AGEN_SKIP;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Vertex", ( shaderEdit.stages[i].alphaGen == Walnut::AGEN_VERTEX ) ) ) {
+						shaderEdit.stages[i].alphaGen = Walnut::AGEN_VERTEX;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Waveform", ( shaderEdit.stages[i].alphaGen == Walnut::AGEN_WAVEFORM ) ) ) {
+						shaderEdit.stages[i].alphaGen = Walnut::AGEN_WAVEFORM;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
 					ImGui::EndCombo();
 				}
-				if ( ImGui::BeginCombo( "Texture Coordinate Generate (tcGen)", "" ) ) {
+				if ( ImGui::BeginCombo( "Texture Coordinate Generate (tcGen)", TCGenToString( shaderEdit.stages[i].tcGen ) ) ) {
+					if ( ImGui::Selectable( "Identity", ( shaderEdit.stages[i].tcGen == Walnut::TCGEN_IDENTITY ) ) ) {
+						shaderEdit.stages[i].tcGen == Walnut::TCGEN_IDENTITY;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Light Map", ( shaderEdit.stages[i].tcGen == Walnut::TCGEN_LIGHTMAP ) ) ) {
+						shaderEdit.stages[i].tcGen == Walnut::TCGEN_LIGHTMAP;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Texture", ( shaderEdit.stages[i].tcGen == Walnut::TCGEN_TEXTURE ) ) ) {
+						shaderEdit.stages[i].tcGen == Walnut::TCGEN_TEXTURE;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Vector", ( shaderEdit.stages[i].tcGen == Walnut::TCGEN_VECTOR ) ) ) {
+						shaderEdit.stages[i].tcGen == Walnut::TCGEN_IDENTITY;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
 					ImGui::EndCombo();
 				}
-				if ( ImGui::BeginCombo( "Texture Coordinate Modification (tcMod)", "" ) ) {
+				if ( ImGui::BeginCombo( "Texture Coordinate Modification (tcMod)", TCModToString( shaderEdit.stages[i].tcMod ) ) ) {
+					if ( ImGui::Selectable( "None", ( shaderEdit.stages[i].tcMod == Walnut::TMOD_NONE ) ) ) {
+						shaderEdit.stages[i].tcMod = Walnut::TMOD_NONE;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Entity Translate", ( shaderEdit.stages[i].tcMod == Walnut::TMOD_ENTITY_TRANSLATE ) ) ) {
+						shaderEdit.stages[i].tcMod = Walnut::TMOD_ENTITY_TRANSLATE;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Offset", ( shaderEdit.stages[i].tcMod == Walnut::TMOD_OFFSET ) ) ) {
+						shaderEdit.stages[i].tcMod = Walnut::TMOD_OFFSET;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Scale", ( shaderEdit.stages[i].tcMod == Walnut::TMOD_SCALE ) ) ) {
+						shaderEdit.stages[i].tcMod = Walnut::TMOD_SCALE;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Rotate", ( shaderEdit.stages[i].tcMod == Walnut::TMOD_ROTATE ) ) ) {
+						shaderEdit.stages[i].tcMod = Walnut::TMOD_ROTATE;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Scale Offset", ( shaderEdit.stages[i].tcMod == Walnut::TMOD_SCALE_OFFSET ) ) ) {
+						shaderEdit.stages[i].tcMod = Walnut::TMOD_SCALE_OFFSET;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Stretch", ( shaderEdit.stages[i].tcMod == Walnut::TMOD_STRETCH ) ) ) {
+						shaderEdit.stages[i].tcMod = Walnut::TMOD_STRETCH;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Scroll", ( shaderEdit.stages[i].tcMod == Walnut::TMOD_SCROLL ) ) ) {
+						shaderEdit.stages[i].tcMod = Walnut::TMOD_SCROLL;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Transform", ( shaderEdit.stages[i].tcMod == Walnut::TMOD_TRANSFORM ) ) ) {
+						shaderEdit.stages[i].tcMod = Walnut::TMOD_TRANSFORM;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
+					if ( ImGui::Selectable( "Turbulent", ( shaderEdit.stages[i].tcMod == Walnut::TMOD_TURBULENT ) ) ) {
+						shaderEdit.stages[i].tcMod = Walnut::TMOD_TURBULENT;
+						g_pMapInfoDlg->SetModified( true, true );
+					}
 					ImGui::EndCombo();
 				}
 			}

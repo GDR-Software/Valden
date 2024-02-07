@@ -36,6 +36,7 @@ public:
 
     friend class CProjectSettingsDlg;
 private:
+    void InitProjectConfig( const char *filepath ) const;
     void AddToCache( const std::string& path, bool loadJSON = false, bool buildPath = false );
 
     std::unordered_map<std::string, std::shared_ptr<Project>> m_ProjList;

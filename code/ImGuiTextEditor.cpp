@@ -3170,7 +3170,8 @@ const TextEditor::LanguageDefinition& TextEditor::LanguageDefinition::Q3Shader()
 		static const char* const keywords[] = {
 			"if", "else", "elif", "light", "surfaceparms", "blendFunc", "alphaGen", "depthWrite",
 			"tcMod", "tcGen", "texgen", "specularScale", "normalScale", "parallaxDepth", "roughness", "gloss",
-			"specularExponent", "specularReflectance", "stage", "detail", "depthFunc", "map", "deformVertexes",
+			"specularExponent", "specularReflectance", "stage", "detail", "depthFunc", "map", "deformVertexes", "clampmap",
+			"nomipmaps", "nopicmip"
 		};
 
 		for (auto& k : keywords)

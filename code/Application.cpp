@@ -38,7 +38,7 @@ static void GL_ErrorCallback( GLenum source, GLenum type, GLuint id, GLenum seve
 #pragma comment(lib, "legacy_stdio_definitions")
 #endif
 
-//#define IMGUI_UNLIMITED_FRAME_RATE
+#define IMGUI_UNLIMITED_FRAME_RATE
 
 static std::vector<std::function<void()>> s_ResourceFreeQueue;
 static Walnut::Application* s_Instance = NULL;
@@ -198,7 +198,7 @@ namespace Walnut {
 
 					const ImGuiViewport* viewport = ImGui::GetMainViewport();
 					ImGui::SetNextWindowPos( { 0, 24 } );
-//					ImGui::SetNextWindowSize( { viewport->WorkSize.x / 2, viewport->WorkSize.y } );
+					ImGui::SetNextWindowSize( { viewport->WorkSize.x / 2, viewport->WorkSize.y } );
 					ImGui::SetNextWindowViewport( viewport->ID );
 					ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 					ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);

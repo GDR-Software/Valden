@@ -150,15 +150,18 @@ static void signalCatcher( int signum )
     switch ( signum ) {
     case SIGSEGV:
         g_UnsafeExit = true;
-        Error( "Segmentation Violation (SIGSEGV)" );
+        Log_Printf( "Segmentation Violation (SIGSEGV)\n" );
+		_Exit( EXIT_FAILURE );
         break;
     case SIGABRT:
         g_UnsafeExit = true;
-        Error( "Abnormal Program Termination (SIGABRT)" );
+        Log_Printf( "Abnormal Program Termination (SIGABRT)\n" );
+		_Exit( EXIT_FAILURE );
         break;
     case SIGBUS:
         g_UnsafeExit = true;
-        Error( "Buss Error (SIGBUS)" );
+        Log_Printf( "Buss Error (SIGBUS)\n" );
+		_Exit( EXIT_FAILURE );
         break;
     case SIGILL:
         g_UnsafeExit = true;

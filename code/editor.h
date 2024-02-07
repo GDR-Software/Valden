@@ -22,7 +22,7 @@
 //
 // editor dialogs
 //
-#include "assetmanager_dlg.h"
+#include "shadermanager_dlg.h"
 #include "textedit_dlg.h"
 #include "mapinfo_dlg.h"
 
@@ -138,13 +138,13 @@ public:
 
     std::vector<std::string> m_RecentFiles;
 
-    std::vector<entityInfo_t>::iterator m_pCurrentMob;
-    std::vector<entityInfo_t>::iterator m_pCurrentItem;
-    std::vector<entityInfo_t>::iterator m_pCurrentWeapon;
-    std::vector<entityInfo_t>::iterator m_pCurrentBot;
     std::vector<TextEditor>::iterator m_pCurrentEditor;
     std::vector<TextEditor> m_TextEditors;
     std::vector<CEditorDialog *> m_Dialogs;
+
+    bool m_bPopupMenuFile;
+    bool m_bPopupMenuEdit;
+    bool m_bPopupMenuView;
 
     std::string m_RecentDirectory;
 
@@ -152,9 +152,6 @@ public:
 
     bool m_bWindowFocused;
     EditorInputFocus m_InputFocus;
-
-    char m_szAddMobName[MAX_NPATH+1];
-    uint32_t m_nAddMobId;
 };
 
 extern Walnut::Application *g_pApplication;;
@@ -167,5 +164,70 @@ extern CMapInfoDlg *g_pMapInfoDlg;
 extern std::string g_strBitmapsDir;
 extern std::string g_pidFile;
 extern std::mutex g_ImGuiLock;
+
+inline bool MenuItemWithTooltip( const char *title, const char *shortcut, const char *tooltip, ... )
+{
+    va_list argptr;
+    bool active;
+
+    active = ImGui::MenuItem( title, shortcut );
+
+    if ( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) ) {
+        va_start( argptr, tooltip );
+        ImGui::SetItemTooltipV( tooltip, argptr );
+        va_end( argptr );
+    }
+
+    return active;
+}
+
+inline bool MenuItemWithTooltip( const char *title, const char *tooltip, ... )
+{
+    va_list argptr;
+    bool active;
+
+    active = ImGui::MenuItem( title );
+
+    if ( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) ) {
+        va_start( argptr, tooltip );
+        ImGui::SetItemTooltipV( tooltip, argptr );
+        va_end( argptr );
+    }
+
+    return active;
+}
+
+inline bool ButtonWithTooltip( const char *title, const char *tooltip, ... )
+{
+    va_list argptr;
+    bool active;
+
+    active = ImGui::Button( title );
+
+    if ( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) ) {
+        va_start( argptr, tooltip );
+        ImGui::SetItemTooltipV( tooltip, argptr );
+        va_end( argptr );
+    }
+
+    return active;
+}
+
+inline bool TreeNodeWithTooltip( const char *title, const ImGuiTreeNodeFlags flags, const char *tooltip, ... )
+{
+    va_list argptr;
+    bool active;
+
+    // shut up compiler
+    active = ImGui::TreeNodeEx( (void *)(uintptr_t)title, flags, "%s", title );
+
+    if ( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) ) {
+        va_start( argptr, tooltip );
+        ImGui::SetItemTooltipV( tooltip, argptr );
+        va_end( argptr );
+    }
+
+    return active;
+}
 
 #endif

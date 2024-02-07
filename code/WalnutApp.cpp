@@ -102,12 +102,9 @@ static void InitDialogs( void )
 		Log_Printf( "Using ZLib compression.\n" );
 	}
 
-	s_pOpenFileIcon = new Walnut::Image( va( "%s%sfile_open.png", g_pEditor->m_CurrentPath.c_str(), g_strBitmapsDir.c_str() ) );
-
 	Walnut::InitShaders();
 	Walnut::InitTextures();
-
-	g_pMapInfoDlg->SetCurrent( mapData );
+	Map_Init();
 
 	g_pEditor->m_RecentDirectory = g_pPrefsDlg->m_PrefsDlgEngine;
 }
@@ -205,152 +202,7 @@ void CEditorLayer::OnUIRender( void )
 	if ( g_pContentBrowserDlg->ItemIsSelected() ) {
 	}
 
-	if ( ImGui::BeginPopup( "AddItem" ) ) {
-		ImGui::EndPopup();
-	}
-	if ( ImGui::BeginPopup( "AddMob" ) ) {
-		ImGui::TextUnformatted( "Name: " );
-		ImGui::InputText( "##AddMobName", m_szAddMobName, sizeof(m_szAddMobName) - 1 );
-		ImGui::TextUnformatted( "Id: " );
-		ImGui::InputInt( "##AddMobId", (int *)&m_nAddMobId );
-
-		if ( ImGui::Button( "OK" ) ) {
-			g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ].emplace_back( m_szAddMobName, m_nAddMobId );
-			memset( m_szAddMobName, 0, sizeof(m_szAddMobName) );
-			m_nAddMobId = 0;
-			ImGui::CloseCurrentPopup();
-		}
-		ImGui::SameLine();
-		if ( ImGui::Button( "CANCEL" ) ) {
-			memset( m_szAddMobName, 0, sizeof(m_szAddMobName) );
-			m_nAddMobId = 0;
-			ImGui::CloseCurrentPopup();
-		}
-		ImGui::EndPopup();
-	}
-	if ( ImGui::BeginPopup( "AddWeapon" ) ) {
-		ImGui::EndPopup();
-	}
-	if ( ImGui::BeginPopup( "AddBot" ) ) {
-		ImGui::EndPopup();
-	}
-
-	if ( ImGui::BeginPopup( "ModifyItem" ) ) {
-		ImGui::SeparatorText( "Modify Item" );
-		ImGui::EndPopup();
-	}
-	if ( ImGui::BeginPopup( "ModifyMob" ) ) {
-		ImGui::SeparatorText( "Modify Mob" );
-		ImGui::EndPopup();
-	}
-	if ( ImGui::BeginPopup( "ModifyWeapon" ) ) {
-		ImGui::SeparatorText( "Modify Weapon" );
-		ImGui::EndPopup();
-	}
-	if ( ImGui::BeginPopup( "ModifyBot" ) ) {
-		ImGui::SeparatorText( "Modify Bot" );
-		ImGui::EndPopup();
-	}
-
-	if ( ImGui::Begin( "Project Info" ) ) {
-		if ( ImGui::IsWindowFocused() ) {
-			m_bWindowFocused = true;
-			m_InputFocus = EditorInputFocus::ToolFocus;
-		}
-
-		ImGui::TextUnformatted( "Name: " );
-		ImGui::SameLine();
-		if ( ImGui::InputText( "##ProjectName", &g_pProjectManager->GetProject()->m_Name, ImGuiInputTextFlags_EnterReturnsTrue ) ) {
-			m_bProjectModified = true;
-		}
-
-		if ( ImGui::Button( "Add Map To Project" ) ) {
-			ImGuiFileDialog::Instance()->OpenDialog( "AddMapToProjectDlg", "Open Map File", ".map, .bmf, Map Files (*.map *.bmf){*.map, *.bmf}",
-				g_pEditor->m_RecentDirectory );
-		}
-
-		if ( ImGui::BeginCombo( "Map List", mapData->name ) ) {
-
-			for ( auto it : g_pProjectManager->GetProject()->m_MapList ) {
-				if ( !it->name[0] ) {
-					continue;
-				}
-				if ( ImGui::Selectable( it->name, ( mapData == it ) ) ) {
-					if ( ::ConfirmModified() ) {
-						g_pMapInfoDlg->SetCurrent( it );
-					}
-				}
-			}
-
-			ImGui::EndCombo();
-		}
-
-		if ( ImGui::BeginCombo( "Mob List", "Mob List" ) ) {
-			
-			std::vector<entityInfo_t>& entityList = g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ];
-			for ( auto it = entityList.begin(); it != entityList.end(); it++ ) {
-				if ( ImGui::Selectable( it->m_Name.c_str(), ( m_pCurrentMob == it ) ) ) {
-					m_pCurrentMob = it;
-					ImGui::OpenPopup( "ModifyMob" );
-				}
-			}
-			if ( ImGui::Button( "Add Mob" ) ) {
-				ImGui::OpenPopup( "AddMob" );
-			}
-
-			ImGui::EndCombo();
-		}
-
-		if ( ImGui::BeginCombo( "Item List", "Item List" ) ) {
-			
-			std::vector<entityInfo_t>& entityList = g_pProjectManager->GetProject()->m_EntityList[ ET_ITEM ];
-			for ( auto it = entityList.begin(); it != entityList.end(); it++ ) {
-				if ( ImGui::Selectable( it->m_Name.c_str(), ( m_pCurrentItem == it ) ) ) {
-					m_pCurrentItem = it;
-					ImGui::OpenPopup( "ModifyItem" );
-				}
-			}
-			if ( ImGui::Button( "Add Item" ) ) {
-				ImGui::OpenPopup( "AddItem" );
-			}
-
-			ImGui::EndCombo();
-		}
-
-		if ( ImGui::BeginCombo( "Weapon List", "Weapon List" ) ) {
-			
-			std::vector<entityInfo_t>& entityList = g_pProjectManager->GetProject()->m_EntityList[ ET_WEAPON ];
-			for ( auto it = entityList.begin(); it != entityList.end(); it++ ) {
-				if ( ImGui::Selectable( it->m_Name.c_str(), ( m_pCurrentWeapon == it ) ) ) {
-					m_pCurrentWeapon = it;
-					ImGui::OpenPopup( "ModifyWeapon" );
-				}
-			}
-			if ( ImGui::Button( "Add Weapon" ) ) {
-				ImGui::OpenPopup( "AddWeapon" );
-			}
-
-			ImGui::EndCombo();
-		}
-
-		if ( ImGui::BeginCombo( "Bot List", "Bot List" ) ) {
-			
-			std::vector<entityInfo_t>& entityList = g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ];
-			for ( auto it = entityList.begin(); it != entityList.end(); it++ ) {
-				if ( ImGui::Selectable( it->m_Name.c_str(), ( m_pCurrentBot == it ) ) ) {
-					m_pCurrentBot = it;
-					ImGui::OpenPopup( "ModifyBot" );
-				}
-			}
-			if ( ImGui::Button( "Add Bot" ) ) {
-				ImGui::OpenPopup( "AddBot" );
-			}
-
-			ImGui::EndCombo();
-		}
-
-		ImGui::End();
-	}
+	g_pMapInfoDlg->ProjectSettingsDlg();
 
 	if ( ImGui::Begin( "Text Editor", NULL, ImGuiWindowFlags_None ) ) {
 		if ( ImGui::IsWindowHovered() || ImGui::IsWindowFocused() ) {
@@ -496,7 +348,8 @@ void Valden_HandleInput( void )
 			}
 		}
 		if ( ImGui::IsKeyDown( ImGuiKey_T ) ) {
-			ImGui::OpenPopup( "TileMode" );
+			g_pMapDrawer->m_bTileSelectOn = true;
+			g_pMapInfoDlg->m_bHasTileWindow = true;
 		}
 		if ( ImGui::IsKeyDown( ImGuiKey_C ) ) {
 			if ( g_pMapDrawer->m_bTileSelectOn ) {
@@ -543,11 +396,13 @@ static void FileMenu( void )
     }
     ImGui::Separator();
     if ( ImGui::MenuItem( "New Project...", "Ctrl+Shift+N" ) ) {
+		g_pProjectManager->New();
     }
     if ( ImGui::MenuItem( "Load Project...", "Ctrl+Shitf+L" ) ) {
 		g_pEditor->LoadProjectFileDlg();
     }
     if ( ImGui::MenuItem( "Project Settings..." ) ) {
+		g_pMapInfoDlg->m_bHasProjectWindow = true;
     }
     ImGui::Separator();
 	if ( ImGui::BeginMenu( "Recent Files", g_pEditor->m_RecentFiles.size() ) ) {
@@ -596,7 +451,8 @@ static void EditMenu( void )
     }
 	ImGui::Separator();
 	if ( ImGui::MenuItem( "Current Tile", "Ctrl-T" ) ) {
-		ImGui::OpenPopup( "TileMode" );
+		g_pMapDrawer->m_bTileSelectOn = true;
+		g_pMapInfoDlg->m_bHasTileWindow = true;
 	}
     ImGui::Separator();
     if ( ImGui::MenuItem( "Preferences...", "P" ) ) {
@@ -624,37 +480,43 @@ static void DrawEditor( void )
 
 	Valden_HandleInput();
 
-	if ( ImGui::BeginPopup( "##FileEx" ) ) {
-		FileMenu();
-		ImGui::EndPopup();
+	if ( g_pEditor->m_bPopupMenuFile ) {
+		if ( ImGui::Begin( "File##FileEx", &g_pEditor->m_bPopupMenuFile, ImGuiWindowFlags_NoCollapse ) ) {
+			FileMenu();
+			ImGui::End();
+		}
 	}
 	else if ( ImGui::BeginMenu( "File" ) ) {
 		if ( ImGui::Button( "-------------------------" ) ) {
-			ImGui::OpenPopup( "##FileEx" );
+			g_pEditor->m_bPopupMenuFile = true;
 		}
 		FileMenu();
         ImGui::EndMenu();
 	}
 
-	if ( ImGui::BeginPopup( "##EditEx" ) ) {
-		EditMenu();
-		ImGui::EndPopup();
+	if ( g_pEditor->m_bPopupMenuEdit ) {
+		if ( ImGui::Begin( "Edit##EditEx", &g_pEditor->m_bPopupMenuEdit, ImGuiWindowFlags_NoCollapse ) ) {
+			EditMenu();
+			ImGui::End();
+		}
 	}
     else if ( ImGui::BeginMenu( "Edit" ) ) {
 		if ( ImGui::Button( "-------------------------" ) ) {
-			ImGui::OpenPopup( "##EditEx" );
+			g_pEditor->m_bPopupMenuEdit = true;
 		}
 		EditMenu();
         ImGui::EndMenu();
     }
 
-	if ( ImGui::BeginPopup( "##ViewEx" ) ) {
-		ViewMenu();
-		ImGui::EndPopup();
+	if ( g_pEditor->m_bPopupMenuView ) {
+		if ( ImGui::Begin( "View##ViewEx", &g_pEditor->m_bPopupMenuView, ImGuiWindowFlags_NoCollapse ) ) {
+			ViewMenu();
+			ImGui::End();
+		}
 	}
     else if ( ImGui::BeginMenu( "View" ) ) {
 		if ( ImGui::Button( "-------------------------" ) ) {
-			ImGui::OpenPopup( "##ViewEx" );
+			g_pEditor->m_bPopupMenuView = true;
 		}
 		ViewMenu();
         ImGui::EndMenu();
@@ -701,7 +563,7 @@ Walnut::Application* Walnut::CreateApplication( int argc, char **argv )
 //	iconImage.pixels = stbi_load( "icon.png", &iconImage.width, &iconImage.height, &channels, STBI_rgb_alpha );
 //	IM_ASSERT( iconImage.pixels );
 
-	spec.Name = "SIR Editor";
+	spec.Name = "Valden";
 	spec.Width = 1920;
 	spec.Height = 1080;
 
@@ -722,4 +584,24 @@ Walnut::Application* Walnut::CreateApplication( int argc, char **argv )
 	g_pApplication->SetMenubarCallback( DrawEditor );
 
 	return g_pApplication;
+}
+
+/*
+* HelpMenu: this chunky function gives a complete in-app manual, imma make it a link to web docs sometime in the future
+*/
+static void HelpMenu( void )
+{
+	const ImGuiTreeNodeFlags treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth
+                                            | ImGuiTreeNodeFlags_FramePadding;
+
+	ImGui::Begin( "Valden Documentation" );
+	
+	if ( ImGui::TreeNodeEx( (void *)(uintptr_t)"Texture Mapping", treeNodeFlags, "Texture Mapping" ) ) {
+		ImGui::TreePop();	
+	}
+	if ( ImGui::TreeNodeEx( (void *)(uintptr_t)"Entities", treeNodeFlags, "Entities" ) ) {
+		ImGui::TreePop();	
+	}
+
+	ImGui::End();
 }

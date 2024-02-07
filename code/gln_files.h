@@ -4,9 +4,12 @@
 #pragma once
 
 /*
-GLN_FILES: these definitions must not change in any glnomad extension or project
+* GLN_FILES: these definitions must not change in any glnomad extension or project
 */
 
+#ifndef MAX_NPATH
+#define MAX_NPATH 64
+#endif
 
 #ifndef MAX_GDR_PATH
 #define MAX_GDR_PATH 64
@@ -29,6 +32,21 @@ GLN_FILES: these definitions must not change in any glnomad extension or project
 #define ANIMATION_FILE_EXT_RAW "anim2d"
 #define LEVEL_FILE_EXT ".bmf"
 #define LEVEL_FILE_EXT_RAW "bmf"
+
+typedef enum {
+    DIR_NORTH = 0,
+    DIR_NORTH_EAST,
+    DIR_EAST,
+    DIR_SOUTH_EAST,
+    DIR_SOUTH,
+    DIR_SOUTH_WEST,
+    DIR_WEST,
+    DIR_NORTH_WEST,
+    
+    NUMDIRS,
+
+	DIR_NULL
+} dirtype_t;
 
 typedef struct {
     uint64_t fileofs;
@@ -149,7 +167,7 @@ typedef struct {
 
 typedef struct {
     float texcoords[4][2];
-    byte sides[5]; // for physics
+    byte sides[DIR_NULL]; // for physics
     vec4_t color;
     uvec3_t pos;
     int32_t index; // tileset texture index, -1 if not bound
