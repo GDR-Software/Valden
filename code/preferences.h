@@ -6,9 +6,10 @@
 typedef struct entityInfo_s {
     std::string m_Name;
     uint32_t m_Id;
+    std::map<std::string, std::string> m_Properties;
 
-    entityInfo_s( const char *name, uint32_t id)
-        : m_Name{ name }, m_Id{ id }
+    entityInfo_s( const char *name, uint32_t id )
+        : m_Name{ name }, m_Id{ id }, m_Properties{}
     {
     }
     ~entityInfo_s() = default;

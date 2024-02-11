@@ -87,7 +87,8 @@ void CAssetManagerDlg::OnUIRender( void )
 			ImGui::TreePop();
 		}
 		if ( ImGui::Button( "Add Shader File" ) ) {
-
+			ImGuiFileDialog::Instance()->OpenDialog( "AddShaderFileDlg", "Open Shader File", "Shader Files (*.shader){.shader}",
+				g_pEditor->m_CurrentPath );
 		}
 		ImGui::SeparatorText( "Shader Files" );
 		for ( auto& it : m_ShaderList ) {

@@ -188,9 +188,10 @@ void CMapInfoDlg::AddMob( void )
 			Log_Printf( "Adding new mob '%s' to project with ID %i...\n", m_szAddMobName, m_nAddMobId );
 			g_pProjectManager->GetProject()->m_EntityList[ET_MOB].emplace_back( entityInfo_t( m_szAddMobName, m_nAddMobId ) );
 			m_bHasAddMobWindow = false;
+			g_pEditor->m_bProjectModified = true;
 		}	
 	}
-	if ( !m_szAddMobName[0] ) {
+	if ( !m_szAddMobName[0] || !isUnique ) {
 		ImGui::PopStyleColor( 3 );
 	}
 	ImGui::SameLine();
@@ -248,9 +249,10 @@ void CMapInfoDlg::AddItem( void )
 			Log_Printf( "Adding new item '%s' to project with ID %i...\n", m_szAddItemName, m_nAddItemId );
 			g_pProjectManager->GetProject()->m_EntityList[ET_ITEM].emplace_back( entityInfo_t( m_szAddItemName, m_nAddItemId ) );
 			m_bHasAddItemWindow = false;
+			g_pEditor->m_bProjectModified = true;
 		}	
 	}
-	if ( !m_szAddItemName[0] ) {
+	if ( !m_szAddItemName[0] || !isUnique ) {
 		ImGui::PopStyleColor( 3 );
 	}
 	ImGui::SameLine();
@@ -308,14 +310,52 @@ void CMapInfoDlg::AddBot( void )
 			Log_Printf( "Adding new bot '%s' to project with ID %i...\n", m_szAddBotName, m_nAddBotId );
 			g_pProjectManager->GetProject()->m_EntityList[ET_MOB].emplace_back( entityInfo_t( m_szAddBotName, m_nAddBotId ) );
 			m_bHasAddBotWindow = false;
+			g_pEditor->m_bProjectModified = true;
 		}	
 	}
-	if ( !m_szAddBotName[0] ) {
+	if ( !m_szAddBotName[0] || !isUnique ) {
 		ImGui::PopStyleColor( 3 );
 	}
 	ImGui::SameLine();
 	if ( ImGui::Button( "CANCEL" ) ) {
 		m_bHasAddBotWindow = false;
+	}
+
+	ImGui::End();
+}
+
+void CMapInfoDlg::AddMobType( void )
+{
+	if ( !m_bHasAddMobTypeWindow ) {
+		return;
+	}
+
+	ImGui::Begin( "" );
+
+	ImGui::End();
+}
+
+void CMapInfoDlg::ModifyMobType( void )
+{
+	if ( !m_bHasEditMobTypeWindow ) {
+		return;
+	}
+
+	bool isUnique;
+
+	ImGui::Begin( "Modify Mob Type", &m_bHasEditMobTypeWindow, ImGuiWindowFlags_NoCollapse );
+
+	ImGui::TextUnformatted( "Name: " );
+	ImGui::SameLine();
+	ImGui::InputText( "##ModifyMobTypeName" , m_szEditMobTypeName, sizeof(m_szEditMobTypeName) - 1 );
+
+	ImGui::Separator();
+
+	isUnique = true;
+	for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ] ) {
+		if ( !N_stricmp( it.m_Name.c_str(), m_szEditMobName ) ) {
+			isUnique = false;
+		}
 	}
 
 	ImGui::End();
@@ -327,38 +367,37 @@ void CMapInfoDlg::ModifyMob( void )
 		return;
 	}
 
-	bool isUnique;
-
 	ImGui::Begin( "Modify Mob", &m_bHasEditMobWindow, ImGuiWindowFlags_NoCollapse );
 
-	ImGui::TextUnformatted( "Name: " );
-	ImGui::SameLine();
-	ImGui::InputText( "##ModifyMobName", m_szEditMobName, sizeof(m_szEditMobName) - 1 );
+	std::string& type = g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ][m_nEditMobId].m_Properties["mob_type"];
+	if ( ImGui::BeginCombo( "Type", type.c_str() ) ) {
+		if ( ImGui::Selectable( "Zurgut Hulk", ( type == "Zurgut Hulk" ) ) ) {
+			type = "Zurgut Hulk";
+		}
+		if ( ImGui::Selectable( "Zurgut Grunt", ( type == "Zurgut Grunt" ) ) ) {
+			type = "Zurgut Grunt";
+		}
+		if ( ImGui::Selectable( "Shotgunner", ( type == "Shotgunner" ) ) ) {
+			type = "Shotgunner";
+		}
+		ImGui::EndCombo();
+	}
 
 	ImGui::Separator();
 
-	isUnique = true;
-	for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ] ) {
-		if ( !N_stricmp( it.m_Name.c_str(), m_szEditMobName ) ) {
-			isUnique = false;
-		}
-	}
-
-	if ( !m_szEditMobName[0] || !isUnique ) {
+	if ( !m_szEditMobName[0] ) {
 		ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
 		ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
 		ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
 	}
-	if ( !isUnique ) {
-		ButtonWithTooltip( "DONE", "mob entity doesn't have a unique name!" );
-	}
-	else if ( !m_szEditMobName[0] ) {
+	if ( !m_szEditMobName[0] ) {
 		ButtonWithTooltip( "DONE", "mob entity has no name" );
 	}
 	else {
 		if ( ImGui::Button( "DONE" ) ) {
 			m_bHasEditMobWindow = false;
 			m_pCurrentMob->m_Name = m_szEditMobName;
+			g_pEditor->m_bProjectModified = true;
 		}	
 	}
 	if ( !m_szEditMobName[0] ) {
@@ -371,7 +410,7 @@ void CMapInfoDlg::ModifyMob( void )
 	ImGui::SameLine();
 	if ( ImGui::Button( "DELETE" ) ) {
 		m_bHasEditMobWindow = false;
-		g_pProjectManager->GetProject()->m_EntityList[ ET_ITEM ].erase( m_pCurrentMob );
+		g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ].erase( m_pCurrentMob );
 	}
 
 	ImGui::End();
@@ -390,6 +429,20 @@ void CMapInfoDlg::ModifyItem( void )
 	ImGui::TextUnformatted( "Name: " );
 	ImGui::SameLine();
 	ImGui::InputText( "##ModifyItemName", m_szEditItemName, sizeof(m_szEditItemName) - 1 );
+
+	std::string& type = g_pProjectManager->GetProject()->m_EntityList[ ET_ITEM ][ m_nEditItemId ].m_Properties["item_type"];
+	if ( ImGui::BeginCombo( "Type", type.c_str() ) ) {
+		if ( ImGui::Selectable( "Weapon", type == "Weapon" ) ) {
+			type = "Weapon";
+		}
+		if ( ImGui::Selectable( "Powerup", type == "Powerup" ) ) {
+			type = "Powerup";
+		}
+		if ( ImGui::Selectable( "None", type == "None" ) ) {
+			type = "None";
+		}
+		ImGui::EndCombo();
+	}
 
 	ImGui::Separator();
 
@@ -416,9 +469,10 @@ void CMapInfoDlg::ModifyItem( void )
 			m_bHasEditItemWindow = false;
 			m_pCurrentItem->m_Name = m_szEditItemName;
 			m_pCurrentItem->m_Id = m_nEditItemId;
+			g_pEditor->m_bProjectModified = true;
 		}	
 	}
-	if ( !m_szEditItemName[0] ) {
+	if ( !m_szEditItemName[0] || !isUnique ) {
 		ImGui::PopStyleColor( 3 );
 	}
 	ImGui::SameLine();
@@ -440,11 +494,54 @@ void CMapInfoDlg::ModifyBot( void )
 		return;
 	}
 
+	bool isUnique;
+
 	ImGui::Begin( "Modify Bot", &m_bHasEditBotWindow, ImGuiWindowFlags_NoCollapse );
 
 	ImGui::TextUnformatted( "Name: " );
 	ImGui::SameLine();
-	ImGui::InputText( "##ModifyItemName", m_szEditItemName, sizeof(m_szEditItemName) - 1 );
+	ImGui::InputText( "##ModifyBotName", m_szEditBotName, sizeof(m_szEditBotName) - 1 );
+
+	ImGui::Separator();
+
+	isUnique = true;
+	for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[ ET_BOT ] ) {
+		if ( !N_stricmp( it.m_Name.c_str(), m_szEditBotName ) ) {
+			isUnique = false;
+		}
+	}
+
+	if ( !m_szEditBotName[0] || !isUnique ) {
+		ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+	}
+	if ( !isUnique ) {
+		ButtonWithTooltip( "DONE", "bot entity doesn't have a unique name!" );
+	}
+	else if ( !m_szEditBotName[0] ) {
+		ButtonWithTooltip( "DONE", "bot entity has no name" );
+	}
+	else {
+		if ( ImGui::Button( "DONE" ) ) {
+			m_bHasEditBotWindow = false;
+			m_pCurrentBot->m_Name = m_szEditBotName;
+			m_pCurrentBot->m_Id = m_nEditBotId;
+			g_pEditor->m_bProjectModified = true;
+		}	
+	}
+	if ( !m_szEditBotName[0] || !isUnique ) {
+		ImGui::PopStyleColor( 3 );
+	}
+	ImGui::SameLine();
+	if ( ImGui::Button( "CANCEL" ) ) {
+		m_bHasEditBotWindow = false;
+	}
+	ImGui::SameLine();
+	if ( ImGui::Button( "DELETE" ) ) {
+		g_pProjectManager->GetProject()->m_EntityList[ ET_BOT ].erase( m_pCurrentBot );
+		m_bHasEditBotWindow = false;
+	}
 
 	ImGui::End();
 }
@@ -463,8 +560,9 @@ void CMapInfoDlg::ProjectSettingsDlg( void )
 
 		ImGui::TextUnformatted( "Name: " );
 		ImGui::SameLine();
-		if ( ImGui::InputText( "##ProjectName", &g_pProjectManager->GetProject()->m_Name, ImGuiInputTextFlags_EnterReturnsTrue ) ) {
+		if ( ImGui::InputText( "##ProjectName", m_szProjectName, sizeof(m_szProjectName), ImGuiInputTextFlags_EnterReturnsTrue ) ) {
 			g_pEditor->m_bProjectModified = true;
+			g_pProjectManager->GetProject()->m_Name = m_szProjectName;
 		}
 
 		if ( ImGui::Button( "Add Map To Project" ) ) {
@@ -625,6 +723,7 @@ void CMapInfoDlg::SetCurrent( mapData_t *data )
 	}
 
 	N_strncpyz( m_szTempMapName, mapData->name, sizeof(m_szTempMapName) );
+	N_strncpyz( m_szProjectName, g_pProjectManager->GetProject()->m_Name.c_str(), sizeof(m_szProjectName) );
 }
 
 static void ShaderEdit( void );

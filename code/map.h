@@ -38,7 +38,7 @@ typedef struct {
 } mapData_t;
 
 extern mapData_t *mapData;
-extern std::unordered_map<std::string, mapData_t> g_MapCache;
+extern std::vector<mapData_t> g_MapCache;
 
 void Map_Init( void );
 void Map_Save( void );

@@ -14,11 +14,11 @@ public:
     virtual void OnAttach( void ) override;
     virtual void OnDetach( void ) override;
     virtual void OnUIRender( void ) override;
+
+    std::vector<std::filesystem::path> m_ShaderList;
 private:
     std::string m_CurrentDirectory;
     std::string m_BaseDirectory;
-
-    std::vector<std::filesystem::path> m_ShaderList;
 
     Walnut::Image *m_pDirectoryIcon;
     Walnut::Image *m_pFileIcon;

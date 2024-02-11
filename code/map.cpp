@@ -3,7 +3,7 @@
 #include <glm/glm.hpp>
 
 mapData_t *mapData;
-std::unordered_map<std::string, mapData_t> g_MapCache;
+std::vector<mapData_t> g_MapCache;
 static const char *unnamed_map = "unnamed.map";
 static tile2d_sprite_t *s_pSpritePOD;
 static maptile_t *s_pTilePOD;
@@ -442,9 +442,7 @@ static bool ParseMap(const char **text, const char *path, mapData_t *tmpData)
 }
 
 
-void Map_Init( void )
-{
-    Map_New();
+void Map_Init( void ) {
 }
 
 void Map_LoadFile( const char *filename )
@@ -456,6 +454,13 @@ void Map_LoadFile( const char *filename )
     const char *ptr;
     const char **text, *tok;
     mapData_t tmpData;
+
+    for ( const auto& it : g_MapCache ) {
+        if ( !N_stricmp( it.name, strrchr( filename, PATH_SEP ) + 1 ) ) {
+            Sys_MessageBox( "Map load Failed", va( "Map file %s is already loaded", filename ), MB_OK | MB_ICONINFORMATION );
+            return;
+        }
+    }
 
     LoadFile( filename, &f.v );
 
@@ -477,6 +482,10 @@ void Map_LoadFile( const char *filename )
         memcpy( mapData, &tmpData, sizeof(*mapData) );
         mapData->texcoords = (tile2d_sprite_t *)GetMemory( sizeof(tile2d_sprite_t) * mapData->tileset.numTiles );
         mapData->tiles = (maptile_t *)GetMemory( sizeof(maptile_t) * mapData->numTiles );
+    }
+
+    if ( g_pProjectManager->IsLoaded() ) {
+        g_pProjectManager->GetProject()->m_MapList.emplace_back( mapData );
     }
 
     FreeMemory( f.b );
@@ -616,12 +625,7 @@ void Map_New( void )
 {
     Map_Free();
 
-    if ( g_MapCache.find( "untitled" ) != g_MapCache.end() ) {
-        g_MapCache.erase( "untitled" );
-    }
-
-    g_MapCache.try_emplace( "untitled" );
-    mapData = std::addressof( g_MapCache["untitled"] );
+    mapData = std::addressof( g_MapCache.emplace_back() );
 
     memset( mapData, 0, sizeof(*mapData) );
 
@@ -653,6 +657,10 @@ void Map_New( void )
 
     g_pEditor->m_nOldMapHeight = mapData->height;
     g_pEditor->m_nOldMapWidth = mapData->width;
+
+    if ( !g_pProjectManager->IsLoaded() ) {
+        g_pProjectManager->GetProject()->m_MapList.emplace_back( mapData );
+    }
 
     if ( g_pMapInfoDlg ) {
         g_pMapInfoDlg->SetCurrent( mapData );

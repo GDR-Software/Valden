@@ -7,7 +7,8 @@ CProjectManager *g_pProjectManager;
 CProjectManager::CProjectManager( void )
 {
     char filePath[MAX_OSPATH*2+1];
-
+    
+    m_bLoaded = false;
     m_ProjectsDirectory =  g_pEditor->m_CurrentPath + g_pPrefsDlg->m_ProjectDataPath;
     
     for ( const auto& directoryEntry : std::filesystem::directory_iterator{ m_ProjectsDirectory } ) {
@@ -18,6 +19,8 @@ CProjectManager::CProjectManager( void )
             AddToCache( path, true );
         }
     }
+
+    m_bLoaded = true;
 }
 
 CProjectManager::~CProjectManager()
@@ -108,6 +111,9 @@ void CProjectManager::AddToCache( const std::string& path, bool loadJSON, bool b
                 proj->m_EntityList[ ET_BOT ].emplace_back( it.at( "name" ).get<std::string>().c_str(), it.at( "id" ) );
             }
         }
+        if ( data.contains( "mobtypes" ) ) {
+            proj->m_MobTypes = data["mobtypes"];
+        }
     } else {
         proj->m_Name = "untitled";
         proj->m_AssetDirectory = va( "%s%cAssets", path.c_str(), PATH_SEP );
@@ -121,7 +127,9 @@ void CProjectManager::AddToCache( const std::string& path, bool loadJSON, bool b
                 || !N_stricmp( COM_GetExtension( filePath.c_str() ), "bmf") ) )
             {
                 Map_LoadFile( filePath.c_str() );
-                proj->m_MapList.emplace_back() = std::addressof( g_MapCache[filePath] );
+                if ( !m_bLoaded ) {
+                    proj->m_MapList.emplace_back( std::addressof( g_MapCache.back() ) );
+                }
             }
         }
     } catch ( const std::filesystem::filesystem_error& e ) {
@@ -135,7 +143,7 @@ void CProjectManager::New( void )
     const char *path;
     char filePath[MAX_OSPATH*2+1];
 
-    for ( count = 0; FolderExists( ( path = va( "%s%suntitled-%i.proj%c", g_pEditor->m_CurrentPath.c_str(), g_pPrefsDlg->m_ProjectDataPath.c_str(),
+    for ( count = 0; FolderExists( ( path = va( "%s%sproject-%i.proj%c", g_pEditor->m_CurrentPath.c_str(), g_pPrefsDlg->m_ProjectDataPath.c_str(),
     count, PATH_SEP ) ) ); count++ )
         ;
     
@@ -169,6 +177,7 @@ void CProjectManager::Save( void ) const
     std::vector<json> itemlist;
     std::vector<json> moblist;
     std::vector<json> botlist;
+    std::vector<json> mobtypes;
     uint32_t i;
 
     ospath = BuildOSPath( m_CurrentProject->m_FilePath.c_str(), "Config", "config.json" );
@@ -217,6 +226,10 @@ void CProjectManager::Save( void ) const
     data["data_lists"]["moblist"] = moblist;
     data["data_lists"]["botlist"] = botlist;
 
+    for ( const auto& it : m_CurrentProject->m_MobTypes ) {
+        data["mobtypes"][it.first] = it.second;
+    }
+
     file.width( 4 );
     file << data;
 }
@@ -262,7 +275,6 @@ void CProjectManager::SetCurrent( const std::string& name, bool buildPath )
     }
 
     Log_Printf( "[CProjectManager::SetCurrent] Loading project '%s'...\n", ospath );
-    Map_New();
 
     m_CurrentProject = it->second;
 

@@ -182,6 +182,7 @@ void DrawFileDialogs( void )
 	FileDialogUIRender( "ImportMapFileDlg", []( const std::string& path ){ if ( IsMap( path.c_str() ) ) { Map_LoadFile( path.c_str() ); } } );
 	FileDialogUIRender( "OpenMapFileDlg", []( const std::string& path ){ Map_LoadFile( path.c_str() ); } );
 	FileDialogUIRender( "AddMapToProjectDlg", []( const std::string& path ){ Map_LoadFile( path.c_str() ); } );
+	FileDialogUIRender( "AddShaderFileDlg", []( const std::string& path ){ g_pAssetManagerDlg->m_ShaderList.emplace_back( path ); } );
 }
 
 void CEditorLayer::OnUIRender( void )
@@ -339,9 +340,9 @@ void Valden_HandleInput( void )
 
 	if ( ImGui::IsKeyDown( ImGuiKey_LeftCtrl ) ) {
 		if ( ImGui::IsKeyDown( ImGuiKey_S ) ) {
-			if ( ImGui::IsKeyDown( ImGuiKey_LeftShift ) ) {
+			if ( ImGui::IsKeyDown( ImGuiKey_LeftAlt ) ) {
 				g_pEditor->OnFileSaveAs();
-			} else if ( ImGui::IsKeyDown( ImGuiKey_LeftAlt ) ) {
+			} else if ( ImGui::IsKeyDown( ImGuiKey_LeftShift ) ) {
 				g_pEditor->OnFileSaveAll();
 			} else {
 				g_pEditor->OnFileSave();

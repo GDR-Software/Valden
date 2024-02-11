@@ -9,6 +9,7 @@ struct Project
     std::vector<mapData_t *> m_MapList;
 
     std::vector<entityInfo_t> m_EntityList[NUMENTITYTYPES];
+    std::unordered_map<std::string, int32_t> m_MobTypes;
 
     std::string m_AssetPath;
 
@@ -34,10 +35,16 @@ public:
     void Save( void ) const;
     void SetCurrent( const std::string& name, bool buildPath = false );
 
+    inline bool IsLoaded( void ) const {
+        return m_bLoaded;
+    }
+
     friend class CProjectSettingsDlg;
 private:
     void InitProjectConfig( const char *filepath ) const;
     void AddToCache( const std::string& path, bool loadJSON = false, bool buildPath = false );
+
+    bool m_bLoaded;
 
     std::unordered_map<std::string, std::shared_ptr<Project>> m_ProjList;
     std::string m_ProjectsDirectory;
