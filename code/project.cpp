@@ -163,7 +163,7 @@ void CProjectManager::New( void )
         Error( "[CProjectManager::New] failed to create project directory '%s%cAssets%cshaders'", path, PATH_SEP, PATH_SEP );
     }
     if ( !Q_mkdir( va( "%s%cAssets%cmaps", path, PATH_SEP, PATH_SEP ) ) ) {
-        Error( "[CProjectManager::New] failed to create project directory '%s%cAssets%cshaders'", path, PATH_SEP, PATH_SEP );
+        Error( "[CProjectManager::New] failed to create project directory '%s%cAssets%cmaps'", path, PATH_SEP, PATH_SEP );
     }
     AddToCache( path );
     m_CurrentProject = m_ProjList.find( path )->second;
@@ -269,15 +269,15 @@ void CProjectManager::SetCurrent( const std::string& name, bool buildPath )
             New();
         } else {
             AddToCache( ospath, true );
+            m_CurrentProject = it->second;
         }
-
-        it = m_ProjList.find( ospath );
     }
 
     Log_Printf( "[CProjectManager::SetCurrent] Loading project '%s'...\n", ospath );
 
-    m_CurrentProject = it->second;
-
+    if ( !m_CurrentProject ) {
+        m_CurrentProject = m_ProjList.find( ospath )->second;
+    }
     if ( m_CurrentProject->m_MapList.size() ) {
         Map_LoadFile( m_CurrentProject->m_MapList.front()->name );
     }

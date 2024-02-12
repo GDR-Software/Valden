@@ -3171,13 +3171,7 @@ const TextEditor::LanguageDefinition& TextEditor::LanguageDefinition::Q3Shader()
 			"if", "else", "elif", "light", "surfaceparms", "blendFunc", "alphaGen", "depthWrite",
 			"tcMod", "tcGen", "texgen", "specularScale", "normalScale", "parallaxDepth", "roughness", "gloss",
 			"specularExponent", "specularReflectance", "stage", "detail", "depthFunc", "map", "deformVertexes", "clampmap",
-			"nomipmaps", "nopicmip"
-		};
-
-		for (auto& k : keywords)
-			langDef.mKeywords.insert(k);
-
-		static const char* const identifiers[] = {
+			"nomipmaps", "nopicmip",
 			// misc
 			"wave",
 			"const",
@@ -3277,10 +3271,17 @@ const TextEditor::LanguageDefinition& TextEditor::LanguageDefinition::Q3Shader()
 			"filter",
 			"blend"
 		};
+
+		for (auto& k : keywords) {
+			langDef.mKeywords.insert(k);
+		}
+
+		static const char* const identifiers[] = {
+		};
 		for (auto& k : identifiers)
 		{
 			Identifier id;
-			id.mDeclaration = "Built-in function";
+			id.mDeclaration = "shader parameter";
 			langDef.mIdentifiers.insert(std::make_pair(std::string(k), id));
 		}
 

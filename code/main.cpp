@@ -320,9 +320,14 @@ int valdenMain( int argc, char **argv )
 	// if the first parameter is a .map, load that
 	if ( argc > 1 && IsMap( argv[1] ) ) {
 		Map_LoadFile( argv[1] );
-	} else if ( g_pPrefsDlg->m_bLoadLastMap && g_pPrefsDlg->m_LastProject.length() > 0 ) {
-		Map_LoadFile( g_pPrefsDlg->m_LastProject.c_str() );
+	} else if ( g_pPrefsDlg->m_bLoadLastMap && g_pPrefsDlg->m_LastMap.length() > 0 ) {
+		Map_LoadFile( g_pPrefsDlg->m_LastMap.c_str() );
 	} else {
+		Map_New();
+	}
+
+	// if the map load failed, then just make a new one
+	if ( !mapData ) {
 		Map_New();
 	}
 

@@ -182,7 +182,7 @@ void DrawFileDialogs( void )
 	FileDialogUIRender( "ImportMapFileDlg", []( const std::string& path ){ if ( IsMap( path.c_str() ) ) { Map_LoadFile( path.c_str() ); } } );
 	FileDialogUIRender( "OpenMapFileDlg", []( const std::string& path ){ Map_LoadFile( path.c_str() ); } );
 	FileDialogUIRender( "AddMapToProjectDlg", []( const std::string& path ){ Map_LoadFile( path.c_str() ); } );
-	FileDialogUIRender( "AddShaderFileDlg", []( const std::string& path ){ g_pAssetManagerDlg->m_ShaderList.emplace_back( path ); } );
+	FileDialogUIRender( "AddShaderFileDlg", []( const std::string& path ){ g_pAssetManagerDlg->AddShaderFile( path ); } );
 }
 
 void CEditorLayer::OnUIRender( void )
@@ -368,6 +368,9 @@ void Valden_HandleInput( void )
 			}
 			free( g_pEditor->m_pCopyPasteData );
 		}
+		if ( ImGui::IsKeyDown( ImGuiKey_N ) ) {
+			g_pEditor->OnFileNew();
+		}
 		if ( ImGui::IsKeyDown( ImGuiKey_M ) ) {
 			g_pEditor->m_InputFocus = EditorInputFocus::MapFocus;
 		}
@@ -389,10 +392,10 @@ static void FileMenu( void )
     if ( ImGui::MenuItem( "Save", "Ctrl+S" ) ) {
         g_pEditor->OnFileSave();
     }
-	if ( ImGui::MenuItem( "Save All", "Ctrl+Alt+S" ) ) {
+	if ( ImGui::MenuItem( "Save All", "Ctrl+Shift+S" ) ) {
 		g_pEditor->OnFileSaveAll();
 	}
-    if ( ImGui::MenuItem( "Save as...", "Ctrl+Shift+S" ) ) {
+    if ( ImGui::MenuItem( "Save As...", "Ctrl+Alt+S" ) ) {
         g_pEditor->OnFileSaveAs();
     }
     ImGui::Separator();

@@ -60,25 +60,18 @@ private:
     void AddMob( void );
     void AddItem( void );
     void AddBot( void );
-    void AddMobType( void );
 
     void ModifyMob( void );
     void ModifyItem( void );
     void ModifyBot( void );
-    void ModifyMobType( void );
 
     bool m_bHasEditItemWindow;
     bool m_bHasEditMobWindow;
     bool m_bHasEditBotWindow;
-    bool m_bHasEditMobTypeWindow;
 
     bool m_bHasAddItemWindow;
     bool m_bHasAddMobWindow;
     bool m_bHasAddBotWindow;
-    bool m_bHasAddMobTypeWindow;
-
-    char m_szEditMobTypeName[MAX_NPATH];
-    int32_t m_nEditMobTypeId;
 
     char m_szEditItemName[MAX_NPATH];
     int32_t m_nEditItemId;
@@ -88,9 +81,6 @@ private:
 
     char m_szEditBotName[MAX_NPATH];
     int32_t m_nEditBotId;
-
-    char m_szAddMobTypeName[MAX_NPATH];
-    int32_t m_nAddMobTypeId;
 
     char m_szAddItemName[MAX_NPATH];
     int32_t m_nAddItemId;
@@ -108,6 +98,7 @@ private:
     uint32_t m_nSelectedSpawnEntityType;
     uint32_t m_nSelectedSpawnEntityId;
 
+    void CreateLight( void );
     void CreateCheckpoint( void );
     void CreateSpawn( void );
 };

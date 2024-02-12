@@ -267,6 +267,9 @@ void CMapRenderer::DrawMap( void )
     Vertex *vtx;
     const ImGuiViewport *view;
 
+    if ( !mapData ) {
+        return;
+    }
 //    if ( !mapData->textures[Walnut::TB_DIFFUSEMAP] || !mapData->texcoords ) {
 //        return;
 //    }

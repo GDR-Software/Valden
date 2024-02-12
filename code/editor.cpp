@@ -22,6 +22,14 @@ void CEditorLayer::OnDetach( void )
 //    delete g_pPrefsDlg;
     Cmd_Shutdown();
 
+    if ( m_bProjectModified ) {
+        if ( Sys_MessageBox( "Project Modified", "The current project has been modified since it was last saved, do you want to save again?",
+            MB_YESNO | MB_ICONWARNING ) == IDYES )
+        {
+            g_pProjectManager->Save();
+        }
+    }
+
     std::ofstream file( va( "%svalden-recent.txt", g_pEditor->m_CurrentPath.c_str() ), std::ios::out );
 
     if ( !file.is_open() ) {
@@ -56,7 +64,9 @@ void CEditorLayer::OnFileSaveAll( void )
     }
     if ( m_bProjectModified ) {
         g_pProjectManager->Save();
+        m_bProjectModified = false;
     }
+
 }
 
 void CEditorLayer::OnFileImport( void )

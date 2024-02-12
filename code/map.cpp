@@ -121,7 +121,7 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
                 COM_ParseError( "missing parameter for tileset numTiles" );
                 return false;
             }
-            mapData->tileset.numTiles = (uint32_t)atoi( tok );
+            tmpData->tileset.numTiles = (uint32_t)atoi( tok );
         }
         //
         // tileWidth <width>
@@ -132,7 +132,7 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
                 COM_ParseError( "missing parameter for tileset tileWidth" );
                 return false;
             }
-            mapData->tileset.tileWidth = (uint32_t)atoi( tok );
+            tmpData->tileset.tileWidth = (uint32_t)atoi( tok );
         }
         //
         // shader <name>
@@ -143,12 +143,12 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
                 COM_ParseError( "missing parameter for tileset shader" );
                 return false;
             }
-            mapData->shader = Walnut::R_FindShader( tok );
-            if ( !mapData->shader ) {
+            tmpData->shader = Walnut::R_FindShader( tok );
+            if ( !tmpData->shader ) {
                 COM_ParseWarning( "invalid shader in tileset" );
                 continue;
             }
-            N_strncpyz( mapData->tileset.texture, tok, sizeof(mapData->tileset.texture) );
+            N_strncpyz( tmpData->tileset.texture, tok, sizeof(tmpData->tileset.texture) );
         }
         //
         // tileHeight <height>
@@ -453,6 +453,7 @@ void Map_LoadFile( const char *filename )
     } f;
     const char *ptr;
     const char **text, *tok;
+    std::string path;
     mapData_t tmpData;
 
     for ( const auto& it : g_MapCache ) {
@@ -462,10 +463,14 @@ void Map_LoadFile( const char *filename )
         }
     }
 
-    LoadFile( filename, &f.v );
+    path = filename;
+    if ( path.find( PATH_SEP ) == std::string::npos ) {
+        path = g_pProjectManager->GetProject()->m_FilePath + g_pProjectManager->GetProject()->m_AssetPath + va( "%cmaps%c%s", PATH_SEP, PATH_SEP, filename );
+    }
+    LoadFile( path.c_str(), &f.v );
 
     if ( !f.v ) {
-        Sys_MessageBox( "Map Load Failed", va( "Failed to open map file '%s'", filename ), MB_OK | MB_ICONWARNING );
+        Sys_MessageBox( "Map Load Failed", va( "Failed to open map file '%s'", path.c_str() ), MB_OK | MB_ICONWARNING );
         return;
     }
 
@@ -474,18 +479,28 @@ void Map_LoadFile( const char *filename )
 
     if ( ParseMap( text, filename, &tmpData ) ) {
         Map_Free();
+        Map_New();
 
         Log_Printf( "Successfully loaded map '%s'\n", filename );
 
         Map_BuildTileset();
 
-        memcpy( mapData, &tmpData, sizeof(*mapData) );
-        mapData->texcoords = (tile2d_sprite_t *)GetMemory( sizeof(tile2d_sprite_t) * mapData->tileset.numTiles );
-        mapData->tiles = (maptile_t *)GetMemory( sizeof(maptile_t) * mapData->numTiles );
-    }
+        if ( !s_pTilePOD ) {
+            s_pTilePOD = (maptile_t *)GetMemory( sizeof(maptile_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
+        }
+        if ( !s_pSpritePOD ) {
+            s_pSpritePOD = (tile2d_sprite_t *)GetMemory( sizeof(tile2d_sprite_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
+        }
 
-    if ( g_pProjectManager->IsLoaded() ) {
-        g_pProjectManager->GetProject()->m_MapList.emplace_back( mapData );
+        memcpy( mapData, &tmpData, sizeof(*mapData) );
+        mapData->texcoords = s_pSpritePOD;
+        mapData->tiles = s_pTilePOD;
+
+        if ( g_pProjectManager->IsLoaded() ) {
+            g_pProjectManager->GetProject()->m_MapList.emplace_back( mapData );
+        }
+    } else {
+        mapData = NULL;
     }
 
     FreeMemory( f.b );
@@ -594,10 +609,11 @@ void Map_Save( void )
             "\t{\n"
             "\t\tclassname \"tilesetdata\"\n"
             "\t\tshader \"%s\"\n"
-            "\t\ttileWidth %i\n"
-            "\t\ttileHeight %i\n"
+            "\t\ttileWidth %u\n"
+            "\t\ttileHeight %u\n"
+            "\t\tnumTiles %u\n"
             "\t}\n"
-        , mapData->tileset.texture, mapData->tileset.tileWidth, mapData->tileset.tileHeight );
+        , mapData->tileset.texture, mapData->tileset.tileWidth, mapData->tileset.tileHeight, mapData->tileset.numTiles );
 
         out.Write( buf, strlen( buf ) );
     }
@@ -658,6 +674,8 @@ void Map_New( void )
     g_pEditor->m_nOldMapHeight = mapData->height;
     g_pEditor->m_nOldMapWidth = mapData->width;
 
+    strcpy( mapData->name, unnamed_map );
+
     if ( !g_pProjectManager->IsLoaded() ) {
         g_pProjectManager->GetProject()->m_MapList.emplace_back( mapData );
     }
@@ -665,8 +683,6 @@ void Map_New( void )
     if ( g_pMapInfoDlg ) {
         g_pMapInfoDlg->SetCurrent( mapData );
     }
-
-    strcpy( mapData->name, unnamed_map );
 
     if ( g_pApplication ) {
         Sys_SetWindowTitle( mapData->name );

@@ -52,6 +52,31 @@ static void CreateShader( const char *name )
 	Log_Printf( "Finished.\n" );
 }
 
+void CAssetManagerDlg::AddShaderFile( const std::string& shaderFile )
+{
+	const char *path;
+
+	for ( const auto& it : m_ShaderList ) {
+		if ( shaderFile == it ) {
+			Log_Printf( "[CAssetManagerDlg::AddShaderFile] shader file '%s' already in cache.\n", shaderFile.c_str() );
+			return;
+		}
+	}
+
+	path = va( "%s%cshaders%c%s", g_pProjectManager->GetProject()->m_AssetDirectory.string().c_str(), PATH_SEP, PATH_SEP,
+		strrchr( shaderFile.c_str(), PATH_SEP ) + 1 );
+
+	Log_Printf( "[CAssetManagerDlg::AddShaderFile] creating symlink '%s'\n", path );
+	
+	try {
+		std::filesystem::create_symlink( shaderFile, path );
+	} catch ( const std::exception& e ) {
+		Log_Printf( "WARNING: exception thrown -- %s\n", e.what() );
+	}
+
+	m_ShaderList.emplace_back( shaderFile );
+}
+
 void CAssetManagerDlg::OnUIRender( void )
 {
     static float padding = 16.0f;

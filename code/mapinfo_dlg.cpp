@@ -158,6 +158,9 @@ void CMapInfoDlg::AddMob( void )
 	ImGui::TextUnformatted( "ID: " );
 	ImGui::SameLine();
 	ImGui::InputInt( "##AddMobId", &m_nAddMobId );
+	if ( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) ) {
+		ImGui::SetItemTooltip( "mob ID's are used in the game's scripting code to easily distinguish mobs from one another" );
+	}
 
 	if ( ButtonWithTooltip( "Generate a Mob ID", "automatically generate a unique mob id" ) ) {
 		m_nAddMobId = g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ].size();
@@ -324,83 +327,60 @@ void CMapInfoDlg::AddBot( void )
 	ImGui::End();
 }
 
-void CMapInfoDlg::AddMobType( void )
-{
-	if ( !m_bHasAddMobTypeWindow ) {
-		return;
-	}
-
-	ImGui::Begin( "" );
-
-	ImGui::End();
-}
-
-void CMapInfoDlg::ModifyMobType( void )
-{
-	if ( !m_bHasEditMobTypeWindow ) {
-		return;
-	}
-
-	bool isUnique;
-
-	ImGui::Begin( "Modify Mob Type", &m_bHasEditMobTypeWindow, ImGuiWindowFlags_NoCollapse );
-
-	ImGui::TextUnformatted( "Name: " );
-	ImGui::SameLine();
-	ImGui::InputText( "##ModifyMobTypeName" , m_szEditMobTypeName, sizeof(m_szEditMobTypeName) - 1 );
-
-	ImGui::Separator();
-
-	isUnique = true;
-	for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ] ) {
-		if ( !N_stricmp( it.m_Name.c_str(), m_szEditMobName ) ) {
-			isUnique = false;
-		}
-	}
-
-	ImGui::End();
-}
 
 void CMapInfoDlg::ModifyMob( void )
 {
 	if ( !m_bHasEditMobWindow ) {
 		return;
 	}
+	bool isUnique;
 
 	ImGui::Begin( "Modify Mob", &m_bHasEditMobWindow, ImGuiWindowFlags_NoCollapse );
 
-	std::string& type = g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ][m_nEditMobId].m_Properties["mob_type"];
-	if ( ImGui::BeginCombo( "Type", type.c_str() ) ) {
-		if ( ImGui::Selectable( "Zurgut Hulk", ( type == "Zurgut Hulk" ) ) ) {
-			type = "Zurgut Hulk";
-		}
-		if ( ImGui::Selectable( "Zurgut Grunt", ( type == "Zurgut Grunt" ) ) ) {
-			type = "Zurgut Grunt";
-		}
-		if ( ImGui::Selectable( "Shotgunner", ( type == "Shotgunner" ) ) ) {
-			type = "Shotgunner";
-		}
-		ImGui::EndCombo();
+	ImGui::TextUnformatted( "Name: " );
+	ImGui::SameLine();
+	ImGui::InputText( "##ModifyMobName", m_szEditMobName, sizeof(m_szEditMobName) - 1 );
+
+	ImGui::TextUnformatted( "ID: " );
+	ImGui::SameLine();
+	ImGui::InputInt( "##AddMobId", &m_nEditMobId );
+	if ( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) ) {
+		ImGui::SetItemTooltip( "mob ID's are used in the game's scripting code to easily distinguish mobs from one another" );
+	}
+
+	if ( ButtonWithTooltip( "Generate a Mob ID", "automatically generate a unique mob id" ) ) {
+		m_nEditMobId = g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ].size();
 	}
 
 	ImGui::Separator();
 
-	if ( !m_szEditMobName[0] ) {
+	isUnique = true;
+	for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ] ) {
+		if ( it.m_Id == m_nEditMobId || !N_stricmp( it.m_Name.c_str(), m_szEditMobName ) ) {
+			isUnique = false;
+		}
+	}
+
+	if ( !m_szEditMobName[0] || !isUnique ) {
 		ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
 		ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
 		ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
 	}
-	if ( !m_szEditMobName[0] ) {
+	if ( !isUnique ) {
+		ButtonWithTooltip( "DONE", "mob entity doesn't have a unique name and/or id!" );
+	}
+	else if ( !m_szEditMobName[0] ) {
 		ButtonWithTooltip( "DONE", "mob entity has no name" );
 	}
 	else {
 		if ( ImGui::Button( "DONE" ) ) {
+			Log_Printf( "Adding new mob '%s' to project with ID %i...\n", m_szEditMobName, m_nEditMobId );
+			g_pProjectManager->GetProject()->m_EntityList[ET_MOB].emplace_back( entityInfo_t( m_szEditMobName, m_nEditMobId ) );
 			m_bHasEditMobWindow = false;
-			m_pCurrentMob->m_Name = m_szEditMobName;
 			g_pEditor->m_bProjectModified = true;
 		}	
 	}
-	if ( !m_szEditMobName[0] ) {
+	if ( !m_szEditMobName[0] || !isUnique ) {
 		ImGui::PopStyleColor( 3 );
 	}
 	ImGui::SameLine();
@@ -411,6 +391,7 @@ void CMapInfoDlg::ModifyMob( void )
 	if ( ImGui::Button( "DELETE" ) ) {
 		m_bHasEditMobWindow = false;
 		g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ].erase( m_pCurrentMob );
+		g_pEditor->m_bProjectModified = true;
 	}
 
 	ImGui::End();
@@ -483,6 +464,7 @@ void CMapInfoDlg::ModifyItem( void )
 	if ( ImGui::Button( "DELETE" ) ) {
 		g_pProjectManager->GetProject()->m_EntityList[ ET_ITEM ].erase( m_pCurrentItem );
 		m_bHasEditItemWindow = false;
+		g_pEditor->m_bProjectModified = true;
 	}
 
 	ImGui::End();
@@ -541,6 +523,7 @@ void CMapInfoDlg::ModifyBot( void )
 	if ( ImGui::Button( "DELETE" ) ) {
 		g_pProjectManager->GetProject()->m_EntityList[ ET_BOT ].erase( m_pCurrentBot );
 		m_bHasEditBotWindow = false;
+		g_pEditor->m_bProjectModified = true;
 	}
 
 	ImGui::End();
@@ -666,11 +649,19 @@ void CMapInfoDlg::CreateCheckpoint( void )
 	mapData->numCheckpoints++;
 }
 
+void CMapInfoDlg::CreateLight( void )
+{
+	memset( &mapData->lights[mapData->numLights], 0, sizeof(maplight_t) );
+	m_bMapModified = true;
+	m_bMapNameUpdated = false;
+	mapData->numLights++;
+}
+
 static bool MapIsInProjectList( const char *name )
 {
 	if ( g_pProjectManager->GetProject().get() ) {
 		for ( const auto& it : g_pProjectManager->GetProject()->m_MapList ) {
-			if ( strcmp( it->name, name ) == 0 ) {
+			if ( it && strcmp( it->name, name ) == 0 ) {
 				return true;
 			}
 		}
@@ -1068,6 +1059,9 @@ void CMapInfoDlg::Draw( void )
 			}
 			ImGui::PopStyleVar();
 		}
+		if ( ButtonWithTooltip( "Add Light", "Add a light object to the map" ) ) {
+			CreateLight();
+		}
 
 		ImGui::SeparatorText( "Checkpoints" );
 	    for ( i = 0; i < mapData->numCheckpoints; i++ ) {
@@ -1085,6 +1079,9 @@ void CMapInfoDlg::Draw( void )
 				ImGui::TreePop();
 			}
 			ImGui::PopStyleVar();
+		}
+		if ( ButtonWithTooltip( "Add Checkpoint", "Add a checkpoint to the map" ) ) {
+			CreateCheckpoint();
 		}
 
 		ImGui::SeparatorText( "Spawns" );
@@ -1133,6 +1130,9 @@ void CMapInfoDlg::Draw( void )
 			}
 			ImGui::PopStyleVar();
 	    }
+		if ( ButtonWithTooltip( "Add Spawn", "Add an entity spawn to the map" ) ) {
+			CreateSpawn();
+		}
 		
 		ImGui::SeparatorText( "Tileset" );
 		ImGui::TextUnformatted( "Name: " );

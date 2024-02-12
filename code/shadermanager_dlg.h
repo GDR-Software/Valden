@@ -15,8 +15,10 @@ public:
     virtual void OnDetach( void ) override;
     virtual void OnUIRender( void ) override;
 
-    std::vector<std::filesystem::path> m_ShaderList;
+    void AddShaderFile( const std::string& shaderFile );
 private:
+    std::vector<std::filesystem::path> m_ShaderList;
+
     std::string m_CurrentDirectory;
     std::string m_BaseDirectory;
 

@@ -4,7 +4,6 @@ using json = nlohmann::json;
 
 CPrefsDlg::CPrefsDlg( void )
 {
-    Load();
 }
 
 CPrefsDlg::~CPrefsDlg()
@@ -84,6 +83,7 @@ void CPrefsDlg::Load( void )
 
     m_ProjectDataPath = data["projectdatapath"];
     m_LastProject = data["lastproject"];
+    m_LastMap = data["lastmap"];
     m_Engine = data["engine"];
     if ( data.contains( "enginepath" ) ) {
         m_PrefsDlgEngine = data["enginepath"];
