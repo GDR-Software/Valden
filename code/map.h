@@ -3,13 +3,7 @@
 
 #pragma once
 
-typedef enum {
-    TU_DIFFUSEMAP,
-    TU_NORMALMAP,
-    TU_SPECULARMAP,
-
-    NUMUNITS
-} textureunit_t;
+typedef vec2_t spriteCoord_t[4];
 
 typedef struct {
     char name[MAX_NPATH];
@@ -19,7 +13,7 @@ typedef struct {
     maplight_t lights[MAX_MAP_LIGHTS];
 
     tile2d_info_t tileset;
-    tile2d_sprite_t *texcoords;
+    spriteCoord_t *texcoords;
     maptile_t *tiles;
 
     Walnut::CShader *shader;
@@ -27,6 +21,9 @@ typedef struct {
 
     vec3_t ambientColor;
     float ambientIntensity;
+
+    int textureWidth;
+    int textureHeight;
 
     int width;
     int height;

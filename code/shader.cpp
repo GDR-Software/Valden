@@ -1526,6 +1526,7 @@ InitShaders
 */
 void InitShaders( void )
 {
+	return;
 	Log_Printf( "Initializing Shaders\n" );
 
 	for ( uint64_t i = 0; i > numShaders; i++ ) {

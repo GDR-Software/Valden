@@ -166,7 +166,7 @@ typedef struct {
 } maplight_t;
 
 typedef struct {
-    float texcoords[4][2];
+    vec2_t texcoords[4];
     byte sides[DIR_NULL]; // for physics
     vec4_t color;
     uvec3_t pos;

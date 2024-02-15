@@ -50,6 +50,9 @@ public:
 
     char m_szCurrentShader[MAX_NPATH];
 private:
+    uint32_t m_nTileX;
+    uint32_t m_nTileY;
+
     std::vector<entityInfo_t>::iterator m_pCurrentMob;
     std::vector<entityInfo_t>::iterator m_pCurrentItem;
     std::vector<entityInfo_t>::iterator m_pCurrentWeapon;

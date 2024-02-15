@@ -140,11 +140,6 @@ void CEditorLayer::OnTextEdit( const std::filesystem::path& filename )
 
 	for ( auto it = m_TextEditors.begin(); it != m_TextEditors.end(); it++ ) {
 		if ( !it->m_bOpen ) {
-			m_pCurrentEditor = it;
-
-			it->m_bOpen = true;
-			it->New( filename, editor );
-
 			break;
 		}
 	}
@@ -174,10 +169,15 @@ bool IsMouseInCurrentWindow( void )
 
 void DrawFileDialogs( void )
 {
-	FileDialogUIRender( "SelectDiffuseMapDlg", []( const std::string& path ){ mapData->textures[Walnut::TB_DIFFUSEMAP] = Walnut::FindImage( path.c_str() ); } );
-	FileDialogUIRender( "SelectSpecularMapDlg", []( const std::string& path ){ mapData->textures[Walnut::TB_SPECULARMAP] = Walnut::FindImage( path.c_str() ); } );
-	FileDialogUIRender( "SelectAmbientOccMapDlg", []( const std::string& path ){ mapData->textures[Walnut::TB_LIGHTMAP] = Walnut::FindImage( path.c_str() ); } );
-	FileDialogUIRender( "SelectNormalMapDlg", []( const std::string& path ){ mapData->textures[Walnut::TB_NORMALMAP] = Walnut::FindImage( path.c_str() ); } );
+	FileDialogUIRender( "SelectDiffuseMapDlg", []( const std::string& path ){ g_pAssetManagerDlg->AddTextureFile( path );
+			mapData->textures[Walnut::TB_DIFFUSEMAP] = Walnut::FindImage( path.c_str() ); } );
+	FileDialogUIRender( "SelectSpecularMapDlg", []( const std::string& path ){ g_pAssetManagerDlg->AddTextureFile( path );
+			mapData->textures[Walnut::TB_SPECULARMAP] = Walnut::FindImage( path.c_str() ); } );
+	FileDialogUIRender( "SelectAmbientOccMapDlg", []( const std::string& path ){ g_pAssetManagerDlg->AddTextureFile( path );
+			mapData->textures[Walnut::TB_LIGHTMAP] = Walnut::FindImage( path.c_str() ); } );
+	FileDialogUIRender( "SelectNormalMapDlg", []( const std::string& path ){ g_pAssetManagerDlg->AddTextureFile( path );
+		mapData->textures[Walnut::TB_NORMALMAP] = Walnut::FindImage( path.c_str() ); } );
+	FileDialogUIRender( "AddTextureFileDlg", []( const std::string& path ){ g_pAssetManagerDlg->AddTextureFile( path ); } );
 	FileDialogUIRender( "LoadProjectFileDlg", []( const std::string& path ){ g_pProjectManager->SetCurrent( path, false ); } );
 	FileDialogUIRender( "ImportMapFileDlg", []( const std::string& path ){ if ( IsMap( path.c_str() ) ) { Map_LoadFile( path.c_str() ); } } );
 	FileDialogUIRender( "OpenMapFileDlg", []( const std::string& path ){ Map_LoadFile( path.c_str() ); } );
@@ -212,13 +212,13 @@ void CEditorLayer::OnUIRender( void )
 		}
 
 		bool empty = true;
-
 		for ( const auto& it : m_TextEditors ) {
 			if ( it.m_bOpen ) {
 				empty = false;
 				break;
 			}
 		}
+
 		if ( empty ) {
 			ImGui::TextUnformatted( "No Files Open" );
 		}
@@ -228,13 +228,13 @@ void CEditorLayer::OnUIRender( void )
 					if ( !it->m_bOpen ) {
 						continue;
 					}
-
 					if ( ImGui::BeginTabItem( it->m_Filename.filename().c_str(), &it->m_bOpen ) ) {
 						m_pCurrentEditor = it;
 						ImGui::EndTabItem();
 					}
 
 					if ( !it->m_bOpen ) {
+						it->m_Filename.clear();
 						if ( m_pCurrentEditor == it ) {
 							if ( m_pCurrentEditor == m_TextEditors.begin() && m_TextEditors.size() > 1 ) {
 								m_pCurrentEditor++;

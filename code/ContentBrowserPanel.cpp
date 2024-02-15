@@ -61,14 +61,8 @@ void ContentBrowserPanel::OnUIRender( void )
 		}
 		
         if ( ImGui::BeginDragDropSource() ) {
-			std::filesystem::path relativePath( path );
-        #ifdef _WIN32
-			const wchar_t *itemPath = relativePath.c_str();
-			ImGui::SetDragDropPayload( "CONTENT_BROWSER_ITEM", itemPath, ( wcslen(itemPath) + 1 ) * sizeof(wchar_t) );
-        #else
-            const char *itemPath = relativePath.c_str();
+            const char *itemPath = path.c_str();
             ImGui::SetDragDropPayload( "CONTENT_BROWSER_ITEM", itemPath, ( strlen( itemPath ) + 1 ) * sizeof(char) );
-        #endif
 			ImGui::EndDragDropSource();
 		}
 

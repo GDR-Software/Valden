@@ -16,8 +16,10 @@ public:
     virtual void OnUIRender( void ) override;
 
     void AddShaderFile( const std::string& shaderFile );
+    void AddTextureFile( const std::string& textureFile );
 private:
     std::vector<std::filesystem::path> m_ShaderList;
+    std::vector<std::filesystem::path> m_TextureList;
 
     std::string m_CurrentDirectory;
     std::string m_BaseDirectory;

@@ -5,7 +5,7 @@
 mapData_t *mapData;
 std::vector<mapData_t> g_MapCache;
 static const char *unnamed_map = "unnamed.map";
-static tile2d_sprite_t *s_pSpritePOD;
+static spriteCoord_t *s_pSpritePOD;
 static maptile_t *s_pTilePOD;
 
 typedef enum {
@@ -143,12 +143,77 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
                 COM_ParseError( "missing parameter for tileset shader" );
                 return false;
             }
-            tmpData->shader = Walnut::R_FindShader( tok );
-            if ( !tmpData->shader ) {
-                COM_ParseWarning( "invalid shader in tileset" );
+            N_strncpyz( tmpData->tileset.texture, tok, sizeof(tmpData->tileset.texture) );
+        }
+        //
+        // diffuseMap <name>
+        //
+        else if ( !N_stricmp( tok, "diffuseMap" ) ) {
+            tok = COM_ParseExt( text, qfalse );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for tileset diffuseMap" );
+                return false;
+            }
+            else if ( tok[0] == ' ' ) {
                 continue;
             }
-            N_strncpyz( tmpData->tileset.texture, tok, sizeof(tmpData->tileset.texture) );
+            tmpData->textures[Walnut::TB_DIFFUSEMAP] = new Walnut::Image( tok );
+        }
+        //
+        // specularMap <name>
+        //
+        else if ( !N_stricmp( tok, "specularMap" ) ) {
+            tok = COM_ParseExt( text, qfalse );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for tileset specularMap" );
+                return false;
+            }
+            else if ( tok[0] == ' ' ) {
+                continue;
+            }
+            tmpData->textures[Walnut::TB_SPECULARMAP] = new Walnut::Image( tok );
+        }
+        //
+        // normalMap <name>
+        //
+        else if ( !N_stricmp( tok, "normalMap" ) ) {
+            tok = COM_ParseExt( text, qfalse );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for tileset normalMap" );
+                return false;
+            }
+            else if ( tok[0] == ' ' ) {
+                continue;
+            }
+            tmpData->textures[Walnut::TB_NORMALMAP] = new Walnut::Image( tok );
+        }
+        //
+        // lightMap <name>
+        //
+        else if ( !N_stricmp( tok, "lightMap" ) ) {
+            tok = COM_ParseExt( text, qfalse );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for tileset diffuseMap" );
+                return false;
+            }
+            else if ( tok[0] == ' ' ) {
+                continue;
+            }
+            tmpData->textures[Walnut::TB_LIGHTMAP] = new Walnut::Image( tok );
+        }
+        //
+        // shadowMap <name>
+        //
+        else if ( !N_stricmp( tok, "shadowMap" ) ) {
+            tok = COM_ParseExt( text, qfalse );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for tileset shadowMap" );
+                return false;
+            }
+            else if ( tok[0] == ' ' ) {
+                continue;
+            }
+            tmpData->textures[Walnut::TB_SHADOWMAP] = new Walnut::Image( tok );
         }
         //
         // tileHeight <height>
@@ -238,7 +303,7 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
                 COM_ParseError("failed to parse texture coordinates for map tile");
                 return false;
             }
-            memcpy(tmpData->texcoords[tmpData->tileset.numTiles].uv, coords, sizeof(coords));
+            memcpy( tmpData->texcoords[tmpData->tileset.numTiles], coords, sizeof(coords) );
         }
         //
         // pos <x y elevation>
@@ -368,6 +433,9 @@ static bool ParseMap(const char **text, const char *path, mapData_t *tmpData)
         return false;
     }
 
+    tmpData->texcoords = s_pSpritePOD;
+    tmpData->tiles = s_pTilePOD;
+
     while ( 1 ) {
         tok = COM_ParseComplex( text, qtrue );
         if ( !tok[0] ) {
@@ -477,24 +545,24 @@ void Map_LoadFile( const char *filename )
     ptr = f.b;
     text = &ptr;
 
+    memset( &tmpData, 0, sizeof(tmpData) );
+
+    if ( !s_pTilePOD ) {
+        s_pTilePOD = (maptile_t *)GetMemory( sizeof(maptile_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
+    }
+    if ( !s_pSpritePOD ) {
+        s_pSpritePOD = (spriteCoord_t *)GetMemory( sizeof(spriteCoord_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
+    }
+
     if ( ParseMap( text, filename, &tmpData ) ) {
         Map_Free();
         Map_New();
 
         Log_Printf( "Successfully loaded map '%s'\n", filename );
 
-        Map_BuildTileset();
-
-        if ( !s_pTilePOD ) {
-            s_pTilePOD = (maptile_t *)GetMemory( sizeof(maptile_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
-        }
-        if ( !s_pSpritePOD ) {
-            s_pSpritePOD = (tile2d_sprite_t *)GetMemory( sizeof(tile2d_sprite_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
-        }
-
         memcpy( mapData, &tmpData, sizeof(*mapData) );
-        mapData->texcoords = s_pSpritePOD;
-        mapData->tiles = s_pTilePOD;
+
+        Map_BuildTileset();
 
         if ( g_pProjectManager->IsLoaded() ) {
             g_pProjectManager->GetProject()->m_MapList.emplace_back( mapData );
@@ -552,14 +620,12 @@ static void Map_ArchiveTiles( IDataStream *out )
         sprintf( buf,
             "\t{\n"
             "\t\tclassname \"texcoords\"\n"
-            "\t\tindex %i\n"
             "\t\tcoords ( ( %f %f ) ( %f %f ) ( %f %f ) ( %f %f ) )\n"
             "\t}\n"
-        , mapData->texcoords[i].index,
-            mapData->texcoords[i].uv[0][0], mapData->texcoords[i].uv[0][1],
-            mapData->texcoords[i].uv[1][0], mapData->texcoords[i].uv[1][1],
-            mapData->texcoords[i].uv[2][0], mapData->texcoords[i].uv[2][1],
-            mapData->texcoords[i].uv[3][0], mapData->texcoords[i].uv[3][1] );
+        , mapData->texcoords[i][0][0], mapData->texcoords[i][0][1],
+        mapData->texcoords[i][1][0], mapData->texcoords[i][1][1],
+        mapData->texcoords[i][2][0], mapData->texcoords[i][2][1],
+        mapData->texcoords[i][3][0], mapData->texcoords[i][3][1] );
         
         out->Write( buf, strlen( buf ) );
     }
@@ -609,11 +675,22 @@ void Map_Save( void )
             "\t{\n"
             "\t\tclassname \"tilesetdata\"\n"
             "\t\tshader \"%s\"\n"
+            "\t\tdiffuseMap \"%s\"\n"
+            "\t\tspecularMap \"%s\"\n"
+            "\t\tlightMap \"%s\"\n"
+            "\t\tnormalMap \"%s\"\n"
+            "\t\tshadowMap \"%s\"\n"
             "\t\ttileWidth %u\n"
             "\t\ttileHeight %u\n"
             "\t\tnumTiles %u\n"
             "\t}\n"
-        , mapData->tileset.texture, mapData->tileset.tileWidth, mapData->tileset.tileHeight, mapData->tileset.numTiles );
+        , mapData->tileset.texture,
+        mapData->textures[Walnut::TB_DIFFUSEMAP] ? mapData->textures[Walnut::TB_DIFFUSEMAP]->GetName().c_str() : " ",
+        mapData->textures[Walnut::TB_SPECULARMAP] ? mapData->textures[Walnut::TB_SPECULARMAP]->GetName().c_str() : " ",
+        mapData->textures[Walnut::TB_LIGHTMAP] ? mapData->textures[Walnut::TB_LIGHTMAP]->GetName().c_str() : " ",
+        mapData->textures[Walnut::TB_NORMALMAP] ? mapData->textures[Walnut::TB_NORMALMAP]->GetName().c_str() : " ",
+        mapData->textures[Walnut::TB_SHADOWMAP] ? mapData->textures[Walnut::TB_SHADOWMAP]->GetName().c_str() : " ",
+        mapData->tileset.tileWidth, mapData->tileset.tileHeight, mapData->tileset.numTiles );
 
         out.Write( buf, strlen( buf ) );
     }
@@ -623,6 +700,7 @@ void Map_Save( void )
 
     Map_ArchiveCheckpoints( &out );
     Map_ArchiveSpawns( &out );
+    Map_ArchiveTiles( &out );
 
     out.Write( "}\n", 2 );
 
@@ -652,7 +730,7 @@ void Map_New( void )
         s_pTilePOD = (maptile_t *)GetMemory( sizeof(maptile_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
     }
     if ( !s_pSpritePOD ) {
-        s_pSpritePOD = (tile2d_sprite_t *)GetMemory( sizeof(tile2d_sprite_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
+        s_pSpritePOD = (spriteCoord_t *)GetMemory( sizeof(spriteCoord_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
     }
     mapData->tiles = s_pTilePOD;
     mapData->texcoords = s_pSpritePOD;
@@ -662,8 +740,6 @@ void Map_New( void )
             mapData->tiles[y * MAX_MAP_WIDTH + x].index = 0;
             mapData->tiles[y * MAX_MAP_WIDTH + x].pos[0] = x;
             mapData->tiles[y * MAX_MAP_WIDTH + x].pos[1] = y;
-
-            mapData->texcoords[y * MAX_MAP_WIDTH + x].index = 0;
         }
     }
 
@@ -764,33 +840,35 @@ void Map_BuildTileset( void )
         return;
     }
 
-    const uint32_t tileCountX = mapData->textures[Walnut::TB_DIFFUSEMAP]->GetWidth() / mapData->tileset.tileWidth;
-    const uint32_t tileCountY = mapData->textures[Walnut::TB_DIFFUSEMAP]->GetHeight() / mapData->tileset.tileHeight;
+    mapData->textureWidth = mapData->textures[Walnut::TB_DIFFUSEMAP]->GetWidth();
+    mapData->textureHeight = mapData->textures[Walnut::TB_DIFFUSEMAP]->GetHeight();
+    mapData->tileset.tileCountX = mapData->textures[Walnut::TB_DIFFUSEMAP]->GetWidth() / mapData->tileset.tileWidth;
+    mapData->tileset.tileCountY = mapData->textures[Walnut::TB_DIFFUSEMAP]->GetHeight() / mapData->tileset.tileHeight;
 
-    auto genCoords = [&](const glm::vec2& sheetDims, const glm::vec2& spriteDims, const glm::vec2& coords, vec2_t texcoords[4]) {
+    auto genCoords = [&](const glm::vec2& sheetDims, const glm::vec2& spriteDims, const glm::vec2& coords, spriteCoord_t *texcoords) {
         const glm::vec2 min = { ( ( coords.x + 1 ) * spriteDims.x ) / sheetDims.x, ( ( coords.y + 1 ) * spriteDims.y ) / sheetDims.y };
         const glm::vec2 max = { ( coords.x * spriteDims.x ) / sheetDims.x, ( coords.y * spriteDims.y ) / sheetDims.y };
 
-        texcoords[0][0] = min.x;
-        texcoords[0][1] = max.y;
+        (*texcoords)[0][0] = min.x;
+        (*texcoords)[0][1] = max.y;
 
-        texcoords[1][0] = min.x;
-        texcoords[1][1] = min.y;
+        (*texcoords)[1][0] = min.x;
+        (*texcoords)[1][1] = min.y;
 
-        texcoords[2][0] = max.x;
-        texcoords[2][1] = min.y;
+        (*texcoords)[2][0] = max.x;
+        (*texcoords)[2][1] = min.y;
         
-        texcoords[3][0] = max.x;
-        texcoords[3][1] = max.y;
+        (*texcoords)[3][0] = max.x;
+        (*texcoords)[3][1] = max.y;
     };
 
-    mapData->tileset.numTiles = tileCountX * tileCountY;
+    mapData->tileset.numTiles = mapData->tileset.tileCountX * mapData->tileset.tileCountY;
     
-    for ( y = 0; y < tileCountY; y++ ) {
-        for ( x = 0; x < tileCountX; x++ ) {
-            mapData->texcoords[y * tileCountX + x].index = y * tileCountX + x;
+    for ( y = 0; y < mapData->tileset.tileCountY; y++ ) {
+        for ( x = 0; x < mapData->tileset.tileCountX; x++ ) {
             genCoords( { mapData->textures[Walnut::TB_DIFFUSEMAP]->GetWidth(), mapData->textures[Walnut::TB_DIFFUSEMAP]->GetHeight() },
-                    { mapData->tileset.tileWidth, mapData->tileset.tileHeight }, { x, y }, mapData->texcoords[y * tileCountX + x].uv );
+                    { mapData->tileset.tileWidth, mapData->tileset.tileHeight }, { x, y },
+                    &mapData->texcoords[y * mapData->tileset.tileCountX + x] );
         }
     }
 }

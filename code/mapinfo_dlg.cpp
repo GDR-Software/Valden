@@ -9,7 +9,7 @@
 #define NORMAL_SCALE_XY 0
 #define NORMAL_SCALE_XY_HEIGHT 1
 
-constexpr const int null_sides[NUMDIRS] = { 0 };
+constexpr const byte null_sides[DIR_NULL] = { 0 };
 
 typedef struct {
 	bool active;
@@ -719,10 +719,10 @@ void CMapInfoDlg::SetCurrent( mapData_t *data )
 
 static void ShaderEdit( void );
 
-static inline void ImGui_Quad_TexCoords( const float texcoords[4][2], ImVec2& min, ImVec2& max )
+static inline void ImGui_Quad_TexCoords( const spriteCoord_t *texcoords, ImVec2& min, ImVec2& max )
 {
-    min = { texcoords[3][0], texcoords[3][1] };
-    max = { texcoords[1][0], texcoords[1][1] };
+    min = { (*texcoords)[3][0], (*texcoords)[3][1] };
+    max = { (*texcoords)[1][0], (*texcoords)[1][1] };
 }
 
 void CMapInfoDlg::Draw( void )
@@ -733,6 +733,10 @@ void CMapInfoDlg::Draw( void )
     const ImGuiTreeNodeFlags treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth
                                                 | ImGuiTreeNodeFlags_FramePadding;
 
+	if ( m_bMapModified && !m_bMapNameUpdated ) {
+		Sys_SetWindowTitle( va( "%s*", mapData->name ) );
+		m_bMapNameUpdated = true;
+	}
 
 	AddMob();
 	AddItem();
@@ -742,16 +746,49 @@ void CMapInfoDlg::Draw( void )
 	ModifyItem();
 	ModifyBot();
 
-	if ( m_bHasTileWindow ) {
+	if ( m_bHasTileWindow && g_pMapDrawer->m_bTileSelectOn ) {
 		if ( ImGui::Begin( "##TileMode", &m_bHasTileWindow, ImGuiWindowFlags_AlwaysAutoResize  ) ) {
-			const int x = g_pMapDrawer->m_nTileSelectX;
-			const int y = g_pMapDrawer->m_nTileSelectY;
+			int& x = g_pMapDrawer->m_nTileSelectX;
+			int& y = g_pMapDrawer->m_nTileSelectY;
+
+			if ( ImGui::IsKeyPressed( ImGuiKey_W, false ) ) {
+				y--;
+			}
+			if ( ImGui::IsKeyPressed( ImGuiKey_S, false ) ) {
+				y++;
+			}
+			if ( ImGui::IsKeyPressed( ImGuiKey_A, false ) ) {
+				x--;
+			}
+			if ( ImGui::IsKeyPressed( ImGuiKey_D, false ) ) {
+				x++;
+			}
+			if ( ImGui::IsKeyPressed( ImGuiKey_UpArrow, false ) ) {
+				m_nTileY--;
+			}
+			if ( ImGui::IsKeyPressed( ImGuiKey_DownArrow, false ) ) {
+				m_nTileY++;
+			}
+			if ( ImGui::IsKeyPressed( ImGuiKey_LeftArrow, false ) ) {
+				m_nTileX--;
+			}
+			if ( ImGui::IsKeyPressed( ImGuiKey_RightArrow, false ) ) {
+				m_nTileX++;
+			}
+			if ( ImGui::IsKeyPressed( ImGuiKey_Enter, false ) || ImGui::IsKeyPressed( ImGuiKey_KeypadEnter, false ) ) {
+				maptile_t *t = &mapData->tiles[ y * mapData->width + x ];
+				t->index = m_nTileY * mapData->tileset.tileCountX + m_nTileX;
+				memcpy( t->texcoords, mapData->texcoords[ t->index ], sizeof(spriteCoord_t) );
+			}
+
+			y = clamp( y, 0, mapData->height );
+			x = clamp( x, 0, mapData->width );
 
 			ImGui::Text( "Editing Tile At %ix%i", x, y );
 
 			if ( ImGui::CollapsingHeader( "Set Tile Sprite" ) ) {
-				uint32_t y, x;
-				tile2d_sprite_t *tile;
+				uint32_t tileY, tileX;
+				spriteCoord_t *tile;
 				const Walnut::Image *texture = mapData->textures[Walnut::TB_DIFFUSEMAP];
 				ImVec2 min, max;
 
@@ -759,18 +796,19 @@ void CMapInfoDlg::Draw( void )
 					ImGui::TextUnformatted( "No Tileset in Use" );
 				}
 				else {
-					for ( y = 0; y < mapData->tileset.tileCountY; y++ ) {
-						for ( x = 0; x < mapData->tileset.tileCountX; x++ ) {
-							tile = &mapData->texcoords[ y * mapData->tileset.tileCountX + x ];
-							ImGui_Quad_TexCoords( tile->uv, min, max );
+					for ( tileY = 0; tileY < mapData->tileset.tileCountY; tileY++ ) {
+						for ( tileX = 0; tileX < mapData->tileset.tileCountX; tileX++ ) {
+							tile = &mapData->texcoords[tileY * mapData->tileset.tileCountX + tileX];
+							ImGui_Quad_TexCoords( tile, min, max );
 
 							ImGui::PushID( (uintptr_t)tile );
-							if ( ImGui::ImageButtonEx( texture->GetRendererID(), (ImTextureID)(uintptr_t)texture->GetID(),
-								{ (float)texture->GetWidth(), (float)texture->GetHeight() }, min, max, { 0, 0, 0, 1 }, { 0, 0, 0, 0 } ) )
-							{
+							if ( ImGui::ImageButton( (ImTextureID)(uintptr_t)texture->GetID(), { 64.0f, 64.0f }, min, max ) ) {
 								maptile_t *t = &mapData->tiles[ y * mapData->width + x ];
-								memcpy( t->texcoords, tile->uv, sizeof(t->texcoords) );
-								t->index = y * mapData->tileset.tileCountX + x;
+								t->index = tileY * mapData->tileset.tileCountX + tileX;
+								memcpy( t->texcoords, *tile, sizeof(*tile) );
+								m_bMapModified = true;
+								m_bMapNameUpdated = false;
+								(void)0; // NEVER remove this dead code, for some reason, g++ WILL NOT compile it in
 							}
 							ImGui::PopID();
 							ImGui::SameLine();
@@ -786,71 +824,52 @@ void CMapInfoDlg::Draw( void )
 		        {
 		            const ImVec2 buttonSize = { 86, 48 };
 
-		            ImGui::TableNextColumn();
-		            if ( ImGui::Button( "North West", buttonSize ) ) {
-		                mapData->tiles[ y * mapData->width + x ].sides[DIR_NORTH_WEST] = true;
-						m_bMapModified = true;
-						m_bMapNameUpdated = false;
-		            }
-		            ImGui::TableNextColumn();
-		            if ( ImGui::Button( "North", buttonSize ) ) {
-		                mapData->tiles[ y * mapData->width + x ].sides[DIR_NORTH] = true;
-						m_bMapModified = true;
-						m_bMapNameUpdated = false;
-		            }
-		            ImGui::TableNextColumn();
-		            if ( ImGui::Button( "North East", buttonSize ) ) {
-		                mapData->tiles[ y * mapData->width + x ].sides[DIR_NORTH_EAST] = true;
-						m_bMapModified = true;
-						m_bMapNameUpdated = false;
-		            }
-		            ImGui::TableNextColumn();
-		            if ( ImGui::Button( "West", buttonSize ) ) {
-		                mapData->tiles[ y * mapData->width + x ].sides[DIR_WEST] = true;
-						m_bMapModified = true;
-						m_bMapNameUpdated = false;
-		            }
-		            ImGui::TableNextColumn();
-		            if ( ImGui::Button( "Inside", buttonSize ) ) {
-						mapData->tiles[ y * mapData->width + x ].sides[NUMDIRS] = true;
-						m_bMapModified = true;
-						m_bMapNameUpdated = false;
-		            }
-		            ImGui::TableNextColumn();
-		            if ( ImGui::Button( "East", buttonSize ) ) {
-						mapData->tiles[ y * mapData->width + x ].sides[DIR_EAST] = true;
-						m_bMapModified = true;
-						m_bMapNameUpdated = false;
-		            }
-		            ImGui::TableNextColumn();
-		            if ( ImGui::Button( "South West", buttonSize ) ) {
-		                mapData->tiles[ y * mapData->width + x ].sides[DIR_SOUTH_WEST] = true;
-						m_bMapModified = true;
-						m_bMapNameUpdated = false;
-		            }
-		            ImGui::TableNextColumn();
-		            if ( ImGui::Button( "South", buttonSize ) ) {
-		                mapData->tiles[ y * mapData->width + x ].sides[DIR_SOUTH] = true;
-						m_bMapModified = true;
-						m_bMapNameUpdated = false;
-		            }
-		            ImGui::TableNextColumn();
-		            if ( ImGui::Button( "South East", buttonSize ) ) {
-		                mapData->tiles[ y * mapData->width + x ].sides[DIR_SOUTH_EAST] = true;
-						m_bMapModified = true;
-						m_bMapNameUpdated = false;
-		            }
+					auto sideButton = [&]( const char *name, dirtype_t dir ) {
+						const bool color = mapData->tiles[ y * mapData->width + x ].sides[dir];
+						ImGui::TableNextColumn();
+						if ( color ) {
+							ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 1.0f, 0.0f, 0.0f, 1.0f ) );
+							ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 1.0f, 0.0f, 0.0f, 1.0f ) );
+							ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 1.0f, 0.0f, 0.0f, 1.0f ) );
+						}
+						if ( ImGui::Button( name, buttonSize ) ) {
+							mapData->tiles[ y * mapData->width + x ].sides[dir] = true;
+							m_bMapModified = true;
+							m_bMapNameUpdated = false;
+						}
+						if ( color ) {
+							ImGui::PopStyleColor( 3 );
+						}
+					};
+
+					sideButton( "North West", DIR_NORTH_WEST );
+					sideButton( "North", DIR_NORTH );
+					sideButton( "North East", DIR_NORTH_EAST );
+					sideButton( "West", DIR_WEST );
+					sideButton( "Inside", NUMDIRS );
+					sideButton( "East", DIR_EAST );
+					sideButton( "South West", DIR_SOUTH_WEST );
+					sideButton( "South", DIR_SOUTH );
+					sideButton( "South East", DIR_SOUTH_EAST );
 		        }
 		        ImGui::EndTable();
 
-		        if ( memcmp( mapData->tiles[ y * mapData->width + x ].sides, null_sides, sizeof(null_sides) ) != 0 ) {
-		            if ( ImGui::Button( "Clear Collision Sides" ) ) {
-		                memset( mapData->tiles[ y * mapData->width + x ].sides, 0, sizeof(mapData->tiles[ y * mapData->width + x ].sides) );
-		            }
+				const bool clear = memcmp( mapData->tiles[ y * mapData->width + x ].sides, null_sides, sizeof(null_sides) ) == 0;
+				if ( clear ) {
+					ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+					ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+					ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+				}
+		        if ( ImGui::Button( "Clear Collision Sides" ) && !clear ) {
+		            memset( mapData->tiles[ y * mapData->width + x ].sides, 0, sizeof(mapData->tiles[ y * mapData->width + x ].sides) );
 		        }
+				if ( clear ) {
+					ImGui::PopStyleColor( 3 );
+				}
 			}
 
-			if ( mapData->tiles[y * mapData->width + x].flags & TILETYPE_CHECKPOINT ) {
+			const bool wasCheckpoint = mapData->tiles[y * mapData->width + x].flags & TILETYPE_CHECKPOINT;
+			if ( wasCheckpoint ) {
 				ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.5f, 0.5f, 0.5f, 1.0f ) );
 			}
 			if ( ImGui::Button( "Set Checkpoint" ) ) {
@@ -858,19 +877,20 @@ void CMapInfoDlg::Draw( void )
 				m_bMapModified = true;
 				m_bMapNameUpdated = false;
 			}
-			if ( mapData->tiles[y * mapData->width + x].flags & TILETYPE_CHECKPOINT ) {
+			if ( wasCheckpoint ) {
 				ImGui::PopStyleColor();
 			}
 
-			if ( mapData->tiles[y * mapData->width + x].flags & TILETYPE_SPAWN ) {
+			const bool wasSpawn = mapData->tiles[y * mapData->width + x].flags & TILETYPE_SPAWN;
+			if ( wasSpawn ) {
 				ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.5f, 0.5f, 0.5f, 1.0f ) );
 			}
-			if ( ImGui::Button( "Set Checkpoint" ) ) {
+			if ( ImGui::Button( "Set Spawn" ) ) {
 				mapData->tiles[y * mapData->width + x].flags |= TILETYPE_SPAWN;
 				m_bMapModified = true;
 				m_bMapNameUpdated = false;
 			}
-			if ( mapData->tiles[y * mapData->width + x].flags & TILETYPE_SPAWN ) {
+			if ( wasSpawn ) {
 				ImGui::PopStyleColor();
 			}
 
@@ -1001,13 +1021,9 @@ void CMapInfoDlg::Draw( void )
 		ImGui::TextUnformatted( "Name: " );
 		ImGui::SameLine();
 		if ( ImGui::InputText( "##MapName", m_szTempMapName, MAX_NPATH - strlen( MAP_FILE_EXT ), ImGuiInputTextFlags_EnterReturnsTrue ) ) {
-			if ( strcmp( m_szTempMapName, mapData->name ) != 0 ) {
-				snprintf( mapData->name, sizeof(mapData->name), "%s.map", m_szTempMapName );
-
-				m_bMapModified = true;
-
-				Sys_SetWindowTitle( va( "%s*", mapData->name ) );
-			}
+			snprintf( mapData->name, sizeof(mapData->name), "%s.map", m_szTempMapName );
+			m_bMapModified = true;
+			m_bMapNameUpdated = false;
 		}
 
 		ImGui::TextUnformatted( "Width: " );
@@ -1142,8 +1158,8 @@ void CMapInfoDlg::Draw( void )
 			m_bTilesetModified = true;
 		}
 
-		ImGui::Text( "Image Width: %s", mapData->textures[TU_DIFFUSEMAP] ? va( "%i", mapData->textures[TU_DIFFUSEMAP]->GetWidth() ) : "N/A" );
-		ImGui::Text( "Image Height: %s", mapData->textures[TU_DIFFUSEMAP] ? va( "%i", mapData->textures[TU_DIFFUSEMAP]->GetHeight() ) : "N/A" );
+		ImGui::Text( "Image Width: %i", mapData->textureWidth );
+		ImGui::Text( "Image Height: %i", mapData->textureHeight );
 		
 		ImGui::TextUnformatted( "Tile Width: " );
 		ImGui::SameLine();
@@ -1169,6 +1185,7 @@ void CMapInfoDlg::Draw( void )
 		
 		ImGui::Text( "Number of Tiles: %u", mapData->tileset.numTiles );
 
+		const char *name;
         const char *textureFileDlgFilters =
             ".jpg,.jpeg,.png,.bmp,.tga,.webp,"
 			"Jpeg Files (*.jpeg *.jpg){.jpeg,.jpg},"
@@ -1176,15 +1193,31 @@ void CMapInfoDlg::Draw( void )
 
 		ImGui::TextUnformatted( "Diffuse Map: " );
 		ImGui::SameLine();
-		if ( ImGui::Button( mapData->textures[Walnut::TB_DIFFUSEMAP] ? mapData->textures[Walnut::TB_DIFFUSEMAP]->GetName().c_str() : "None##DiffuseMap" ) ) {
+
+		if ( mapData->textures[Walnut::TB_DIFFUSEMAP] ) {
+			name = mapData->textures[Walnut::TB_DIFFUSEMAP]->GetName().c_str();
+			name = strrchr( name, PATH_SEP ) ? strrchr( name, PATH_SEP ) + 1 : name;
+		} else {
+			name = "None##DiffuseMap";
+		}
+
+		if ( ImGui::Button( name ) ) {
 			ImGuiFileDialog::Instance()->OpenDialog( "SelectDiffuseMapDlg", "Select Diffuse Texture File",
-                textureFileDlgFilters,
+	            textureFileDlgFilters,
 				va( "%s%ctextures%c", g_pProjectManager->GetAssetDirectory().c_str(), PATH_SEP, PATH_SEP ) );
 		}
 
 		ImGui::TextUnformatted( "Normal Map: " );
 		ImGui::SameLine();
-		if ( ImGui::Button( mapData->textures[Walnut::TB_NORMALMAP] ? mapData->textures[Walnut::TB_NORMALMAP]->GetName().c_str() : "None##NormalMap" ) ) {
+
+		if ( mapData->textures[Walnut::TB_NORMALMAP] ) {
+			name = mapData->textures[Walnut::TB_NORMALMAP]->GetName().c_str();
+			name = strrchr( name, PATH_SEP ) ? strrchr( name, PATH_SEP ) + 1 : name;
+		} else {
+			name = "None##NormalMap";
+		}
+
+		if ( ImGui::Button( name ) ) {
 			ImGuiFileDialog::Instance()->OpenDialog( "SelectNormalMapDlg", "Select Normal Texture File",
 				textureFileDlgFilters,
 				va( "%s%ctextures%c", g_pProjectManager->GetAssetDirectory().c_str(), PATH_SEP, PATH_SEP ) );
@@ -1192,16 +1225,48 @@ void CMapInfoDlg::Draw( void )
 
 		ImGui::TextUnformatted( "Specular Map: " );
 		ImGui::SameLine();
-		if ( ImGui::Button( mapData->textures[Walnut::TB_SPECULARMAP] ? mapData->textures[Walnut::TB_SPECULARMAP]->GetName().c_str() : "None##SpecularMap" ) ) {
+
+		if ( mapData->textures[Walnut::TB_SPECULARMAP] ) {
+			name = mapData->textures[Walnut::TB_SPECULARMAP]->GetName().c_str();
+			name = strrchr( name, PATH_SEP ) ? strrchr( name, PATH_SEP ) + 1 : name;
+		} else {
+			name = "None##SpecularMap";
+		}
+
+		if ( ImGui::Button( name ) ) {
 			ImGuiFileDialog::Instance()->OpenDialog( "SelectSpecularMapDlg", "Select Specular Texture File",
 				textureFileDlgFilters,
 				va( "%s%ctextures%c", g_pProjectManager->GetAssetDirectory().c_str(), PATH_SEP, PATH_SEP ) );
 		}
 
-		ImGui::TextUnformatted( "Ambient Occulusion Map: " );
+		ImGui::TextUnformatted( "Light Map: " );
 		ImGui::SameLine();
-		if ( ImGui::Button( mapData->textures[Walnut::TB_LIGHTMAP] ? mapData->textures[Walnut::TB_LIGHTMAP]->GetName().c_str() : "None##AmbientOcclusionMap" ) ) {
-			ImGuiFileDialog::Instance()->OpenDialog( "SelectAmbientOccMapDlg", "Select Ambient Occlusion Texture File",
+
+		if ( mapData->textures[Walnut::TB_LIGHTMAP] ) {
+			name = mapData->textures[Walnut::TB_LIGHTMAP]->GetName().c_str();
+			name = strrchr( name, PATH_SEP ) ? strrchr( name, PATH_SEP ) + 1 : name;
+		} else {
+			name = "None##LightMap";
+		}
+
+		if ( ImGui::Button( name ) ) {
+			ImGuiFileDialog::Instance()->OpenDialog( "SelectLightMapDlg", "Select Light Texture File",
+				textureFileDlgFilters,
+				va( "%s%ctextures%c", g_pProjectManager->GetAssetDirectory().c_str(), PATH_SEP, PATH_SEP ) );
+		}
+
+		ImGui::TextUnformatted( "Shadow Map: " );
+		ImGui::SameLine();
+
+		if ( mapData->textures[Walnut::TB_SHADOWMAP] ) {
+			name = mapData->textures[Walnut::TB_SHADOWMAP]->GetName().c_str();
+			name = strrchr( name, PATH_SEP ) ? strrchr( name, PATH_SEP ) + 1 : name;
+		} else {
+			name = "None##ShadowMap";
+		}
+
+		if ( ImGui::Button( name ) ) {
+			ImGuiFileDialog::Instance()->OpenDialog( "SelectShadowMapDlg", "Select Shadow Texture File",
 				textureFileDlgFilters,
 				va( "%s%ctextures%c", g_pProjectManager->GetAssetDirectory().c_str(), PATH_SEP, PATH_SEP ) );
 		}
@@ -1215,6 +1280,8 @@ void CMapInfoDlg::Draw( void )
 		if ( !mapData->textures[Walnut::TB_DIFFUSEMAP] ) {
 			ImGui::PopStyleColor();
 		}
+
+		mapData->numTiles = mapData->width * mapData->height;
 
 		if ( m_bTilesetModified ) {
 			if ( ButtonWithTooltip( "Build Tileset", "Calculate tile data for the engine to process" ) ) {

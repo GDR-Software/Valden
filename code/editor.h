@@ -157,6 +157,10 @@ public:
 extern Walnut::Application *g_pApplication;;
 extern std::shared_ptr<CEditorLayer> g_pEditor;
 extern std::shared_ptr<CFileDialogLayer> g_pFileDlg;
+extern std::shared_ptr<ContentBrowserPanel> g_pContentBrowserDlg;
+extern std::shared_ptr<CTextEditDlg> g_pShaderEditDlg;
+extern std::shared_ptr<CTextEditDlg> g_pScriptEditDlg;
+extern std::shared_ptr<CAssetManagerDlg> g_pAssetManagerDlg;
 extern CPopupDlg *g_pConfirmModifiedDlg;
 extern CPrefsDlg *g_pPrefsDlg;
 extern CMapInfoDlg *g_pMapInfoDlg;

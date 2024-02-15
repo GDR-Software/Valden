@@ -14,8 +14,26 @@ static void FindShaderFiles( const std::filesystem::path& currentPath, std::vect
 	for ( const auto& it : std::filesystem::directory_iterator{ currentPath } ) {
 		if ( it.is_directory() ) {
 			FindShaderFiles( it, shaderList );
-		} else if ( !N_stricmp( COM_GetExtension( it.path().filename().c_str() ), "shader" ) && !it.is_directory() ) {
-			shaderList.emplace_back( it.path() );
+		} else if ( !N_stricmp( COM_GetExtension( it.path().string().c_str() ), "shader" ) && !it.is_directory() ) {
+			shaderList.emplace_back( it.path().string().c_str() );
+			Log_Printf( "added shader file '%s' to cache\n", it.path().string().c_str() );
+		}
+	}
+}
+
+static void FindTextureFiles( const std::filesystem::path& currentPath, std::vector<std::filesystem::path>& textureList )
+{
+	for ( const auto& it : std::filesystem::directory_iterator{ currentPath } ) {
+		if ( it.is_directory() ) {
+			FindTextureFiles( it, textureList );
+		} else {
+			const std::string path = it.path().filename().string();
+			const char *ext = COM_GetExtension( path.c_str() );
+			if ( !N_stricmp( ext, "png" ) || !N_stricmp( ext, "jpeg" ) || !N_stricmp( ext, "jpg" ) || !N_stricmp( ext, "bmp" )
+				|| !N_stricmp( ext, "tga" ) )
+			{
+				textureList.emplace_back( path );
+			}
 		}
 	}
 }
@@ -29,6 +47,7 @@ void CAssetManagerDlg::OnAttach( void )
     m_pFileIcon = new Walnut::Image( va( "%sbitmaps/FileIcon.png", g_pEditor->m_CurrentPath.c_str() ) );
 
 	FindShaderFiles( m_BaseDirectory, m_ShaderList );
+	FindTextureFiles( m_BaseDirectory, m_TextureList );
 }
 
 void CAssetManagerDlg::OnDetach( void )
@@ -74,7 +93,34 @@ void CAssetManagerDlg::AddShaderFile( const std::string& shaderFile )
 		Log_Printf( "WARNING: exception thrown -- %s\n", e.what() );
 	}
 
+	Log_Printf( "added shader file '%s'\n", shaderFile.c_str() );
 	m_ShaderList.emplace_back( shaderFile );
+}
+
+
+void CAssetManagerDlg::AddTextureFile( const std::string& textureFile )
+{
+	const char *path;
+
+	for ( const auto& it : m_TextureList ) {
+		if ( textureFile == it ) {
+			Log_Printf( "[CAssetManagerDlg::AddTextureFile] texture file '%s' already in cache.\n", textureFile.c_str() );
+			return;
+		}
+	}
+
+	path = va( "%s%ctextures%c%s", g_pProjectManager->GetProject()->m_AssetDirectory.string().c_str(), PATH_SEP, PATH_SEP,
+		strrchr( textureFile.c_str(), PATH_SEP ) + 1 );
+
+	Log_Printf( "[CAssetManagerDlg::AddTextureFile] creating symlink '%s'\n", path );
+	
+	try {
+		std::filesystem::create_symlink( textureFile, path );
+	} catch ( const std::exception& e ) {
+		Log_Printf( "WARNING: exception thrown -- %s\n", e.what() );
+	}
+
+	m_TextureList.emplace_back( textureFile );
 }
 
 void CAssetManagerDlg::OnUIRender( void )
@@ -87,10 +133,10 @@ void CAssetManagerDlg::OnUIRender( void )
 	const ImGuiTreeNodeFlags treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth
                                                 | ImGuiTreeNodeFlags_FramePadding;
 
-    if ( ImGui::Begin( "Shader Manager" ) ) {
+    if ( ImGui::Begin( "Asset Manager" ) ) {
 		if ( ImGui::Button( "Reload Shader List") ) {
 			m_ShaderList.clear();
-			Log_Printf( "[CAssetManagerDlg:OnUIRender] Reloading shader file list...\n" );
+			Log_Printf( "[CAssetManagerDlg::OnUIRender] Reloading shader file list...\n" );
 			FindShaderFiles( m_BaseDirectory, m_ShaderList );
 		}
 		if ( ImGui::TreeNodeEx( (void *)(uintptr_t)"NewShader", treeNodeFlags, "New Shader" ) ) {
@@ -117,9 +163,48 @@ void CAssetManagerDlg::OnUIRender( void )
 		}
 		ImGui::SeparatorText( "Shader Files" );
 		for ( auto& it : m_ShaderList ) {
-			if ( ImGui::MenuItem( it.filename().c_str() ) ) {
+			if ( ImGui::MenuItem( strrchr( it.c_str(), PATH_SEP ) ? strrchr( it.c_str(), PATH_SEP ) + 1 : it.c_str() ) ) {
 				g_pEditor->OnTextEdit( it );
 			}
+		}
+
+		ImGui::SeparatorText( "Texture Files" );
+		// show all textures in Assets/textures
+		if ( g_pEditor->m_bShowAllTextures ) {
+			for ( auto& it : m_TextureList ) {
+				ImGui::MenuItem( strrchr( it.c_str(), PATH_SEP ) ? strrchr( it.c_str(), PATH_SEP ) + 1 : it.c_str() );
+			}
+		}
+		// only show active textures
+		else {
+			if ( mapData->textures[Walnut::TB_DIFFUSEMAP] ) {
+				const char *name = mapData->textures[Walnut::TB_DIFFUSEMAP]->GetName().c_str();
+				ImGui::MenuItem( strrchr( name, PATH_SEP ) ? strrchr( name, PATH_SEP ) + 1 : name );
+			}
+			if ( mapData->textures[Walnut::TB_SPECULARMAP] ) {
+				const char *name = mapData->textures[Walnut::TB_SPECULARMAP]->GetName().c_str();
+				ImGui::MenuItem( strrchr( name, PATH_SEP ) ? strrchr( name, PATH_SEP ) + 1 : name );
+			}
+			if ( mapData->textures[Walnut::TB_NORMALMAP] ) {
+				const char *name = mapData->textures[Walnut::TB_NORMALMAP]->GetName().c_str();
+				ImGui::MenuItem( strrchr( name, PATH_SEP ) ? strrchr( name, PATH_SEP ) + 1 : name );
+			}
+			if ( mapData->textures[Walnut::TB_SHADOWMAP] ) {
+				const char *name = mapData->textures[Walnut::TB_SHADOWMAP]->GetName().c_str();
+				ImGui::MenuItem( strrchr( name, PATH_SEP ) ? strrchr( name, PATH_SEP ) + 1 : name );
+			}
+			if ( mapData->textures[Walnut::TB_LIGHTMAP] ) {
+				const char *name = mapData->textures[Walnut::TB_LIGHTMAP]->GetName().c_str();
+				ImGui::MenuItem( strrchr( name, PATH_SEP ) ? strrchr( name, PATH_SEP ) + 1 : name );
+			}
+		}
+
+		if ( ImGui::Button( "Add Texture File" ) ) {
+			ImGuiFileDialog::Instance()->OpenDialog( "AddTextureFileDlg", "Open Texture File",
+				".jpg,.jpeg,.png,.bmp,.tga,.webp,"
+				"Jpeg Files (*.jpeg *.jpg){.jpeg,.jpg},"
+				"Image Files (*.jpg *.jpeg *.png *.bmp *.tga *.webp){.jpg,.jpeg,.png,.bmp,.tga,.webp}",
+				g_pEditor->m_CurrentPath );
 		}
 
         ImGui::End();

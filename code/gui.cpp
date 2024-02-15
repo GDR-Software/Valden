@@ -122,44 +122,8 @@ void CMapRenderer::OnUpdate( float timestep ) {
         return;
     }
 
-    if ( ImGui::IsKeyDown( ImGuiKey_Escape ) ) {
-        m_bTileSelectOn = false;
-    }
-    if ( ImGui::IsKeyDown( ImGuiKey_UpArrow ) ) {
-        m_nTileSelectY--;
-
-        if ( m_nTileSelectY < 0 ) {
-            m_nTileSelectY = mapData->height - 1;
-        }
-
-        m_bTileSelectOn = true;
-    }
-    if ( ImGui::IsKeyDown( ImGuiKey_DownArrow ) ) {
-        m_nTileSelectY++;
-
-        if ( m_nTileSelectY >= mapData->height ) {
-            m_nTileSelectY = 0;
-        }
-
-        m_bTileSelectOn = true;
-    }
-    if ( ImGui::IsKeyDown( ImGuiKey_LeftArrow ) ) {
-        m_nTileSelectX--;
-
-        if ( m_nTileSelectX < 0 ) {
-            m_nTileSelectX = mapData->width - 1;
-        }
-
-        m_bTileSelectOn = true;
-    }
-    if ( ImGui::IsKeyDown( ImGuiKey_RightArrow ) ) {
-        m_nTileSelectX++;
-
-        if ( m_nTileSelectX >= mapData->width ) {
-            m_nTileSelectX = 0;
-        }
-
-        m_bTileSelectOn = true;
+    if ( m_bTileSelectOn ) {
+        return;
     }
 
     if ( ImGui::IsKeyDown( ImGuiKey_W ) ) {
@@ -338,14 +302,14 @@ void CMapRenderer::DrawMap( void )
             WorldToGL( pos, vtx );
 
             for ( i = 0; i < 4; i++ ) {
-                vtx[i].uv[0] = mapData->texcoords[mapData->tiles[y * mapData->width + x].index].uv[i][0];
-                vtx[i].uv[1] = mapData->texcoords[mapData->tiles[y * mapData->width + x].index].uv[i][1];
+                vtx[i].uv[0] = mapData->texcoords[mapData->tiles[y * mapData->width + x].index][i][0];
+                vtx[i].uv[1] = mapData->texcoords[mapData->tiles[y * mapData->width + x].index][i][1];
 
                 vtx[i].worldPos[0] = pos.x;
                 vtx[i].worldPos[1] = pos.y;
 
                 if ( m_bTileSelectOn && m_nTileSelectX == x && m_nTileSelectY == y ) {
-                    vtx[i].color = { 0.0f, 0.75f, 0.0f, 1.0f };
+                    vtx[i].color = { 0.0f, 0.90f, 0.0f, 1.0f };
                 }
             }
 
@@ -428,11 +392,14 @@ static GLuint GenShader( const char **sources, uint32_t numSources, GLenum type 
     return id;
 }
 
-static void ReloadShaders_f( void )
-{
+static void ReloadShaders_f( void ) {
     Log_Printf( "Reloading shader cache...\n" );
     Walnut::InitTextures();
     Walnut::InitShaders();
+}
+
+static void CenterCamera_f( void ) {
+    g_pMapDrawer->m_CameraPos = glm::vec3( 0.0f );
 }
 
 static void CheckFramebuffer( void )
@@ -459,6 +426,7 @@ void CMapRenderer::OnAttach( void )
     GLuint fragShader;
 
     Cmd_AddCommand( "reloadshaders", ReloadShaders_f );
+    Cmd_AddCommand( "centercamera", CenterCamera_f );
 
     Log_Printf( "[CMapRenderer::OnAttach] allocating OpenGL buffer objects...\n" );
 

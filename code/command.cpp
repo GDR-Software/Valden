@@ -158,6 +158,10 @@ void Cmd_ExecuteText(const char *text)
     CCommand *cmd;
     const char *cmdname;
 
+    if ( *text == '/' || *text == '\\' ) {
+        text++;
+    }
+
     TokenizeString(text, false);
     cmdname = Argv(0);
 
