@@ -155,8 +155,8 @@ qboolean GLN_LoadProject( const char *projectfile );
 
 void Sys_SetWindowTitle( const char *title );
 
-void *GetMemory( int size );
-void *GetResizedMemory( void *ptr, int size );
+void *GetMemory( uint64_t size );
+void *GetResizedMemory( void *ptr, uint64_t size );
 void FreeMemory( void *ptr );
 
 qboolean ConfirmModified( void );
@@ -255,13 +255,13 @@ char *N_stradd(char *dst, const char *src);
 int Sys_MessageBox( const char *title, const char *message, unsigned flags );
 bool Q_mkdir( const char *name, int perms = 0750 );
 bool FolderExists( const char *name );
-int LoadFile( const char *filename, void **buffer );
+uint64_t LoadFile( const char *filename, void **buffer );
 bool FileExists( const char *filename );
-int FileLength( FILE *fp );
-void SafeRead( void *data, int size, IDataStream *stream );
-void SafeRead( void *buffer, int size, FILE *fp );
-void SafeWrite( const void *buffer, int size, FILE *fp );
-void WriteFile( const char *filename, const void *buffer, int length );
+uint64_t FileLength( FILE *fp );
+void SafeRead( void *data, uint64_t size, IDataStream *stream );
+void SafeRead( void *buffer, uint64_t size, FILE *fp );
+void SafeWrite( const void *buffer, uint64_t size, FILE *fp );
+void WriteFile( const char *filename, const void *buffer, uint64_t length );
 
 int CheckParm( const char *name );
 void Error( const char *fmt, ... );

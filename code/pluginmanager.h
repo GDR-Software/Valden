@@ -3,14 +3,6 @@
 
 #pragma once
 
-#define MAX_APINAME 128
-typedef struct
-{
-    char major_version[MAX_APINAME];
-
-    char minor_version[MAX_APINAME];
-} APIDescriptor_t;
-
 class CPluginManager
 {
 public:

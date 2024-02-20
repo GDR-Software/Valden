@@ -1,5 +1,5 @@
 CC			=distcc g++ -std=c++17
-CFLAGS		=-Ofast -msse2 -msse3 -mmmx -Ivendor/imgui/ -Ivendor/GLFW/include/ -Ivendor/glm/ -Ivendor/stb_image/ \
+CFLAGS		=-Ivendor/imgui/ -Ivendor/GLFW/include/ -Ivendor/glm/ -Ivendor/stb_image/ \
 			-IWalnut/src/ -Icode/ -Ivendor/imgui/backends/ -Iinclude -Ivendor/
 O			=obj
 SDIR		=Walnut/src/Walnut

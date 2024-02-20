@@ -295,17 +295,6 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
             tmpData->tiles[tmpData->numTiles].sides[4] = sides[4];
         }
         //
-        // texcoords <texcoords...>
-        //
-        else if ( !N_stricmp( tok, "texcoords" ) ) {
-            float coords[4 * 2];
-            if (!Parse2DMatrix(text, 4, 2, coords)) {
-                COM_ParseError("failed to parse texture coordinates for map tile");
-                return false;
-            }
-            memcpy( tmpData->texcoords[tmpData->tileset.numTiles], coords, sizeof(coords) );
-        }
-        //
         // pos <x y elevation>
         //
         else if (!N_stricmp(tok, "pos")) {
@@ -560,7 +549,27 @@ void Map_LoadFile( const char *filename )
 
         Log_Printf( "Successfully loaded map '%s'\n", filename );
 
-        memcpy( mapData, &tmpData, sizeof(*mapData) );
+        //
+        // copy everything
+        //
+        N_strncpyz( mapData->name, tmpData.name, sizeof(mapData->name) );
+        mapData->width = tmpData.width;
+        mapData->height = tmpData.height;
+        VectorCopy( mapData->ambientColor, tmpData.ambientColor );
+        mapData->ambientIntensity = tmpData.ambientIntensity;
+        memcpy( mapData->checkpoints, tmpData.checkpoints, sizeof(*mapData->checkpoints) * tmpData.numCheckpoints );
+        memcpy( mapData->spawns, tmpData.spawns, sizeof(*mapData->spawns) * tmpData.numSpawns );
+        memcpy( mapData->lights, tmpData.lights, sizeof(*mapData->lights) * tmpData.numLights );
+        mapData->tiles = s_pTilePOD;
+        mapData->texcoords = s_pSpritePOD;
+        mapData->numCheckpoints = tmpData.numCheckpoints;
+        mapData->numSpawns = tmpData.numSpawns;
+        mapData->numLights = tmpData.numLights;
+        memcpy( &mapData->tileset, &tmpData.tileset, sizeof(mapData->tileset) );
+
+        for ( uint32_t i = 0; i < Walnut::NUM_TEXTURE_BUNDLES; i++ ) {
+            mapData->textures[Walnut::TB_DIFFUSEMAP + i] = tmpData.textures[Walnut::TB_DIFFUSEMAP + i];
+        }
 
         Map_BuildTileset();
 
@@ -616,20 +625,6 @@ static void Map_ArchiveTiles( IDataStream *out )
     uint32_t i;
     char buf[1024];
 
-    for ( i = 0; mapData->tileset.numTiles; i++ ) {
-        sprintf( buf,
-            "\t{\n"
-            "\t\tclassname \"texcoords\"\n"
-            "\t\tcoords ( ( %f %f ) ( %f %f ) ( %f %f ) ( %f %f ) )\n"
-            "\t}\n"
-        , mapData->texcoords[i][0][0], mapData->texcoords[i][0][1],
-        mapData->texcoords[i][1][0], mapData->texcoords[i][1][1],
-        mapData->texcoords[i][2][0], mapData->texcoords[i][2][1],
-        mapData->texcoords[i][3][0], mapData->texcoords[i][3][1] );
-        
-        out->Write( buf, strlen( buf ) );
-    }
-
     for ( y = 0; y < mapData->height; y++ ) {
         for ( x = 0; x < mapData->width; x++ ) {
             sprintf( buf,
@@ -659,7 +654,7 @@ void Map_Save( void )
     }
 
     {
-        char buf[1024];
+        char buf[2048];
 
         sprintf( buf,
             "{\n"
@@ -667,7 +662,11 @@ void Map_Save( void )
             "\twidth %i\n"
             "\theight %i\n"
             "\tnumTiles %i\n"
-        , mapData->name, mapData->width, mapData->height, mapData->numTiles );
+            "\tambientColor ( %0.3f %0.3f %0.3f )\n"
+            "\tambientIntensity %f\n"
+        , mapData->name, mapData->width, mapData->height, mapData->numTiles,
+        mapData->ambientColor[0], mapData->ambientColor[1], mapData->ambientColor[2],
+        mapData->ambientIntensity );
 
         out.Write( buf, strlen( buf ) );
 

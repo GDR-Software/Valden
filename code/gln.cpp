@@ -190,7 +190,7 @@ void GLN_ShutdownGL( void )
 char *CopyString( const char *str )
 {
 	char *out;
-	int length;
+	uint64_t length;
 
 	length = strlen( str ) + 1;
 	out = (char *)GetMemory( length );
@@ -200,7 +200,7 @@ char *CopyString( const char *str )
 	return out;
 }
 
-void SafeRead( void *data, int size, IDataStream *stream )
+void SafeRead( void *data, uint64_t size, IDataStream *stream )
 {
 	if ( !stream->Read( data, size ) ) {
 		Error( "SafeRead: failed to read %i bytes from file", size );
@@ -1025,35 +1025,35 @@ bool Q_mkdir( const char *name, int perms )
 #endif
 }
 
-int FileLength( FILE *fp )
+uint64_t FileLength( FILE *fp )
 {
-    int pos, end;
+	uint64_t pos, end;
 
-    pos = ftell( fp );
+    pos = ftello64( fp );
     fseek( fp, 0L, SEEK_END );
-    end = ftell( fp );
+    end = ftello64( fp );
     fseek( fp, pos, SEEK_SET );
 
     return end;
 }
 
-void SafeRead( void *buffer, int size, FILE *fp )
+void SafeRead( void *buffer, uint64_t size, FILE *fp )
 {
     if ( !fread( buffer, 1, size, fp ) ) {
         Error( "Failed to read %i bytes from file", size );
     }
 }
 
-void SafeWrite( const void *buffer, int size, FILE *fp )
+void SafeWrite( const void *buffer, uint64_t size, FILE *fp )
 {
     if ( !fwrite( buffer, 1, size, fp ) ) {
         Error( "Failed to write %i bytes to file", size );
     }
 }
 
-int LoadFile( const char *filename, void **buffer )
+uint64_t LoadFile( const char *filename, void **buffer )
 {
-    int length;
+    uint64_t length;
     void *buf;
     FILE *fp;
 
@@ -1065,7 +1065,7 @@ int LoadFile( const char *filename, void **buffer )
     }
 
     fseek( fp, 0L, SEEK_END );
-    length = ftell( fp );
+    length = ftello64( fp );
     fseek( fp, 0L, SEEK_SET );
 
     buf = GetMemory( length );
@@ -1078,7 +1078,7 @@ int LoadFile( const char *filename, void **buffer )
     return length;
 }
 
-void WriteFile( const char *filename, const void *buffer, int length )
+void WriteFile( const char *filename, const void *buffer, uint64_t length )
 {
     FILE *fp;
 
@@ -1092,7 +1092,7 @@ void WriteFile( const char *filename, const void *buffer, int length )
     fclose( fp );
 }
 
-void *GetMemory( int size )
+void *GetMemory( uint64_t size )
 {
     void *buf;
 
@@ -1112,9 +1112,9 @@ void *GetMemory( int size )
 #include <malloc.h>
 #endif
 
-void *GetResizedMemory( void *ptr, int size )
+void *GetResizedMemory( void *ptr, uint64_t size )
 {
-    int oldsize;
+    uint64_t oldsize;
     void *p;
 
     p = GetMemory( size );
