@@ -17,6 +17,7 @@
 #include "imgui_internal.h"
 #include "nlohmann/json.hpp"
 #include "idatastream.h"
+#include "gln_files.h"
 
 #if defined(__GNUC__) || defined(__MINGW32__) || defined(__MINGW64__)
 	#define FORCEINLINE inline __attribute__((always_inline))
@@ -53,7 +54,6 @@ FORCEINLINE void Swap( T& a, T& b ) {
 }
 
 #include "gln_types.h"
-#include "gln_files.h"
 
 #define HEADER_MAGIC 0x5f3759df
 #define BFF_IDENT (('B'<<24)+('F'<<16)+('F'<<8)+'I')
@@ -279,6 +279,7 @@ typedef enum : uint32_t {
 	NUMENTITYTYPES
 } entitytype_t;
 
+#ifdef VALDEN
 #undef new
 #undef delete
 
@@ -297,6 +298,7 @@ inline void operator delete( void *ptr ) {
 inline void operator delete[]( void *ptr, size_t ) {
     FreeMemory( ptr );
 }
+#endif
 
 #define VectorCopy(dst,src) ((dst)[0]=(src)[0],(dst)[1]=(src)[1],(dst)[2]=(src)[2])
 

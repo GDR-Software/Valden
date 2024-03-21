@@ -3,34 +3,6 @@
 
 #pragma once
 
-typedef float vec_t;
-typedef int32_t ivec_t;
-typedef uint32_t uvec_t;
-
-typedef vec_t vec2_t[2];
-typedef vec_t vec3_t[3];
-typedef vec_t vec4_t[4];
-
-typedef ivec_t ivec2_t[2];
-typedef ivec_t ivec3_t[3];
-typedef ivec_t ivec4_t[4];
-
-typedef uvec_t uvec2_t[2];
-typedef uvec_t uvec3_t[3];
-typedef uvec_t uvec4_t[4];
-
-#ifndef __BYTEBOOL__
-#define __BYTEBOOL__
-typedef unsigned char byte;
-#ifdef __cplusplus
-#define qtrue 1
-#define qfalse 0
-typedef unsigned int qboolean;
-#else
-typedef enum { qfalse = 0, qtrue = 1 } qboolean;
-#endif
-#endif
-
 
 typedef struct texture_s {
     struct texture_s *next;

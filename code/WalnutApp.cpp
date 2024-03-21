@@ -528,7 +528,7 @@ static void DrawEditor( void )
 
 	if ( ImGui::BeginMenu( "Build" ) ) {
 		if ( ImGui::MenuItem( "Compile Map" ) ) {
-
+			
 		}
 		ImGui::EndMenu();
 	}

@@ -4,8 +4,44 @@
 #pragma once
 
 /*
-* GLN_FILES: these definitions must not change in any glnomad extension or project
+* GLN_FILES: these definitions must stay the same in any "The Nomad" extension or project
 */
+
+typedef float vec_t;
+typedef int32_t ivec_t;
+typedef uint32_t uvec_t;
+
+typedef vec_t vec2_t[2];
+typedef vec_t vec3_t[3];
+typedef vec_t vec4_t[4];
+
+typedef ivec_t ivec2_t[2];
+typedef ivec_t ivec3_t[3];
+typedef ivec_t ivec4_t[4];
+
+typedef uvec_t uvec2_t[2];
+typedef uvec_t uvec3_t[3];
+typedef uvec_t uvec4_t[4];
+
+#ifndef __BYTEBOOL__
+#define __BYTEBOOL__
+typedef unsigned char byte;
+#ifdef __cplusplus
+#define qtrue 1
+#define qfalse 0
+typedef unsigned int qboolean;
+#else
+typedef enum { qfalse = 0, qtrue = 1 } qboolean;
+#endif
+#endif
+
+#ifndef PATH_SEP
+#ifdef _WIN32
+#define PATH_SEP '\\'
+#else
+#define PATH_SEP '/'
+#endif
+#endif
 
 #ifndef MAX_NPATH
 #define MAX_NPATH 64
@@ -42,10 +78,10 @@ typedef enum {
     DIR_SOUTH_WEST,
     DIR_WEST,
     DIR_NORTH_WEST,
-    
-    NUMDIRS,
 
-	DIR_NULL
+	DIR_NULL,
+
+    NUMDIRS
 } dirtype_t;
 
 typedef struct {
@@ -143,10 +179,18 @@ typedef struct {
 #define TILETYPE_NORMAL           0x0004
 #define TILETYPE_BITS             0x000f
 
-#define SURFACEPARM_NODLIGHT      0x0010
-#define SURFACEPARM_METAL         0x0020
-#define SURFACEPARM_LIQUID        0x0040
-#define SURFACEPARM_BITS          0x00f0
+#define SURFACEPARM_WOOD            0x10000000 // makes wood sounds and effects
+#define SURFACEPARM_METAL           0x20000000 // enables metallic effects in the game
+#define SURFACEPARM_FLESH           0x40000000 // makes flesh sounds and effects
+#define SURFACEPARM_WATER           0x80000000 // treated as water in the game
+#define SURFACEPARM_LAVA            0x01000000 // treated as water deadly in the game
+#define SURFACEPARM_NOSTEPS         0x02000000 // no footsteps will generated for this tile
+#define SURFACEPARM_NODAMAGE        0x04000000 // fall damage is a lie for this tile
+#define SURFACEPARM_NODLIGHT        0x08000000 // dynamic lighting will not be applied to this tile
+#define SURFACEPARM_NOMARKS         0x00100000 // no gfx will be drawn on this tile
+#define SURFACEPARM_NOMISSILE       0x00200000 // missiles will not explode when hitting this tile, even if it is marked as solid
+#define SURFACEPARM_CHECKPOINT      0x00400000
+#define SURFACEPARM_SPAWN           0x00800000
 
 typedef enum {
     light_point = 0,

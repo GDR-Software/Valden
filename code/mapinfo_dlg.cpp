@@ -746,22 +746,36 @@ void CMapInfoDlg::Draw( void )
 	ModifyItem();
 	ModifyBot();
 
+	g_pMapDrawer->m_bTileSelectOn = m_bHasTileWindow;
+
 	if ( m_bHasTileWindow && g_pMapDrawer->m_bTileSelectOn ) {
-		if ( ImGui::Begin( "##TileMode", &m_bHasTileWindow, ImGuiWindowFlags_AlwaysAutoResize  ) ) {
+		if ( ImGui::Begin( "##TileMode", &m_bHasTileWindow, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking ) ) {
 			int& x = g_pMapDrawer->m_nTileSelectX;
 			int& y = g_pMapDrawer->m_nTileSelectY;
 
 			if ( ImGui::IsKeyPressed( ImGuiKey_W, false ) ) {
 				y--;
+				if ( y < 0 ) {
+					y = mapData->height - 1;
+				}
 			}
 			if ( ImGui::IsKeyPressed( ImGuiKey_S, false ) ) {
 				y++;
+				if ( y >= mapData->height - 1 ) {
+					y = 0;
+				}
 			}
 			if ( ImGui::IsKeyPressed( ImGuiKey_A, false ) ) {
 				x--;
+				if ( x < 0 ) {
+					x = mapData->width - 1;
+				}
 			}
 			if ( ImGui::IsKeyPressed( ImGuiKey_D, false ) ) {
 				x++;
+				if ( x >= mapData->width - 1 ) {
+					x = 0;
+				}
 			}
 			if ( ImGui::IsKeyPressed( ImGuiKey_UpArrow, false ) ) {
 				m_nTileY--;
@@ -781,10 +795,10 @@ void CMapInfoDlg::Draw( void )
 				memcpy( t->texcoords, mapData->texcoords[ t->index ], sizeof(spriteCoord_t) );
 			}
 
-			y = clamp( y, 0, mapData->height );
-			x = clamp( x, 0, mapData->width );
+			y = clamp( y, 0, mapData->height - 1 );
+			x = clamp( x, 0, mapData->width - 1 );
 
-			ImGui::Text( "Editing Tile At %ix%i", x, y );
+			ImGui::Text( "Editing Tile At %ix%i", x + 1, y + 1 );
 
 			if ( ImGui::CollapsingHeader( "Set Tile Sprite" ) ) {
 				uint32_t tileY, tileX;
@@ -830,10 +844,10 @@ void CMapInfoDlg::Draw( void )
 						if ( color ) {
 							ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 1.0f, 0.0f, 0.0f, 1.0f ) );
 							ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 1.0f, 0.0f, 0.0f, 1.0f ) );
-							ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 1.0f, 0.0f, 0.0f, 1.0f ) );
+							ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.9f, 0.0f, 0.0f, 1.0f ) );
 						}
 						if ( ImGui::Button( name, buttonSize ) ) {
-							mapData->tiles[ y * mapData->width + x ].sides[dir] = true;
+							mapData->tiles[ y * mapData->width + x ].sides[dir] = !mapData->tiles[ y * mapData->width + x ].sides[dir];
 							m_bMapModified = true;
 							m_bMapNameUpdated = false;
 						}
@@ -868,30 +882,152 @@ void CMapInfoDlg::Draw( void )
 				}
 			}
 
-			const bool wasCheckpoint = mapData->tiles[y * mapData->width + x].flags & TILETYPE_CHECKPOINT;
-			if ( wasCheckpoint ) {
-				ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.5f, 0.5f, 0.5f, 1.0f ) );
-			}
-			if ( ImGui::Button( "Set Checkpoint" ) ) {
-				mapData->tiles[y * mapData->width + x].flags |= TILETYPE_CHECKPOINT;
-				m_bMapModified = true;
-				m_bMapNameUpdated = false;
-			}
-			if ( wasCheckpoint ) {
-				ImGui::PopStyleColor();
+			if ( ImGui::BeginMenu( "Surface Flags" ) ) {
+				if ( MenuItemWithTooltip( "Metallic", "gives this tile special treatement as a metallic object" ) ) {
+					if ( mapData->tiles[y * mapData->width + x].flags & SURFACEPARM_METAL ) {
+						mapData->tiles[y * mapData->width + x].flags &= ~SURFACEPARM_METAL;
+					} else {
+						mapData->tiles[y * mapData->width + x].flags |= SURFACEPARM_METAL;
+					}
+				}
+				if ( MenuItemWithTooltip( "Wood", "gives this tile special treatement as a wood like object" ) ) {
+					if ( mapData->tiles[y * mapData->width + x].flags & SURFACEPARM_WOOD ) {
+						mapData->tiles[y * mapData->width + x].flags &= ~SURFACEPARM_WOOD;
+					} else {
+						mapData->tiles[y * mapData->width + x].flags |= SURFACEPARM_WOOD;
+					}
+				}
+				if ( MenuItemWithTooltip( "Flesh", "make flesh sounds and effects with this tile" ) ) {
+					if ( mapData->tiles[y * mapData->width + x].flags & SURFACEPARM_FLESH ) {
+						mapData->tiles[y * mapData->width + x].flags &= ~SURFACEPARM_FLESH;
+					} else {
+						mapData->tiles[y * mapData->width + x].flags |= SURFACEPARM_FLESH;
+					}
+				}
+				if ( MenuItemWithTooltip( "Water", "makes this tile be treated like water (DUH)" ) ) {
+					if ( mapData->tiles[y * mapData->width + x].flags & SURFACEPARM_WATER ) {
+						mapData->tiles[y * mapData->width + x].flags &= ~SURFACEPARM_WATER;
+					} else {
+						mapData->tiles[y * mapData->width + x].flags |= SURFACEPARM_WATER;
+					}
+				}
+				if ( MenuItemWithTooltip( "Lava", "makes this tile be treated like lava (DUH)" ) ) {
+					if ( mapData->tiles[y * mapData->width + x].flags & SURFACEPARM_LAVA ) {
+						mapData->tiles[y * mapData->width + x].flags &= ~SURFACEPARM_LAVA;
+					} else {
+						mapData->tiles[y * mapData->width + x].flags |= SURFACEPARM_LAVA;
+					}
+				}
+				if ( MenuItemWithTooltip( "No Steps", "no sound is created by walking this tile" ) ) {
+					if ( mapData->tiles[y * mapData->width + x].flags & SURFACEPARM_NOSTEPS ) {
+						mapData->tiles[y * mapData->width + x].flags &= ~SURFACEPARM_NOSTEPS;
+					} else {
+						mapData->tiles[y * mapData->width + x].flags |= SURFACEPARM_NOSTEPS;
+					}
+				}
+				if ( MenuItemWithTooltip( "No Dynamic Lighting", "disable dynamic lighting for this specific tile" ) ) {
+					if ( mapData->tiles[y * mapData->width + x].flags & SURFACEPARM_NODLIGHT ) {
+						mapData->tiles[y * mapData->width + x].flags &= ~SURFACEPARM_NODLIGHT;
+					} else {
+						mapData->tiles[y * mapData->width + x].flags |= SURFACEPARM_NODLIGHT;
+					}
+				}
+				if ( MenuItemWithTooltip( "No Damage", "disable fall damage for this specific tile" ) ) {
+					if ( mapData->tiles[y * mapData->width + x].flags & SURFACEPARM_NODAMAGE ) {
+						mapData->tiles[y * mapData->width + x].flags &= ~SURFACEPARM_NODAMAGE;
+					} else {
+						mapData->tiles[y * mapData->width + x].flags |= SURFACEPARM_NODAMAGE;
+					}
+				}
+				if ( MenuItemWithTooltip( "No Marks", "disable gfx marks for this specific tile" ) ) {
+					if ( mapData->tiles[y * mapData->width + x].flags & SURFACEPARM_NOMARKS ) {
+						mapData->tiles[y * mapData->width + x].flags &= ~SURFACEPARM_NOMARKS;
+					} else {
+						mapData->tiles[y * mapData->width + x].flags |= SURFACEPARM_NOMARKS;
+					}
+				}
+				if ( MenuItemWithTooltip( "No Missile", "missiles will not explode when hitting this tile" ) ) {
+					if ( mapData->tiles[y * mapData->width + x].flags & SURFACEPARM_NOMISSILE ) {
+						mapData->tiles[y * mapData->width + x].flags &= ~SURFACEPARM_NOMISSILE;
+					} else {
+						mapData->tiles[y * mapData->width + x].flags |= SURFACEPARM_NOMISSILE;
+					}
+				}
+
+				const bool clearFlags = !mapData->tiles[y * mapData->width + x].flags;
+				if ( clearFlags ) {
+					ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+					ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+					ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+				}
+				if ( ImGui::Button( "Clear Surface Flags" ) ) {
+					if ( mapData->tiles[y * mapData->width + x].flags & SURFACEPARM_CHECKPOINT ) {
+						mapData->tiles[y * mapData->width + x].flags = SURFACEPARM_CHECKPOINT;
+					} else if ( mapData->tiles[y * mapData->width + x].flags & SURFACEPARM_SPAWN ) {
+						mapData->tiles[y * mapData->width + x].flags = SURFACEPARM_SPAWN;
+					} else {
+						mapData->tiles[y * mapData->width + x].flags = 0;
+					}
+					m_bMapModified = true;
+					m_bMapNameUpdated = false;
+				}
+				if ( clearFlags ) {
+					ImGui::PopStyleColor( 3 );
+				}
+				ImGui::EndMenu();
 			}
 
-			const bool wasSpawn = mapData->tiles[y * mapData->width + x].flags & TILETYPE_SPAWN;
+			const bool wasCheckpoint = mapData->tiles[y * mapData->width + x].flags & SURFACEPARM_CHECKPOINT;
+			if ( wasCheckpoint ) {
+				ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+				ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+				ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+			}
+			if ( ImGui::Button( "Set Checkpoint" ) ) {
+				if ( wasCheckpoint ) {
+					mapData->tiles[y * mapData->width + x].flags &= ~SURFACEPARM_CHECKPOINT;
+				} else {
+					mapData->tiles[y * mapData->width + x].flags |= SURFACEPARM_CHECKPOINT;
+				}
+				m_bMapModified = true;
+				m_bMapNameUpdated = false;
+			}
+			if ( wasCheckpoint ) {
+				ImGui::PopStyleColor( 3 );
+			}
+
+			const bool wasSpawn = mapData->tiles[y * mapData->width + x].flags & SURFACEPARM_SPAWN;
 			if ( wasSpawn ) {
-				ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.5f, 0.5f, 0.5f, 1.0f ) );
+				ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+				ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+				ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
 			}
 			if ( ImGui::Button( "Set Spawn" ) ) {
-				mapData->tiles[y * mapData->width + x].flags |= TILETYPE_SPAWN;
+				if ( wasSpawn ) {
+					mapData->tiles[y * mapData->width + x].flags &= ~SURFACEPARM_SPAWN;
+				} else {
+					mapData->tiles[y * mapData->width + x].flags |= SURFACEPARM_SPAWN;
+				}
 				m_bMapModified = true;
 				m_bMapNameUpdated = false;
 			}
 			if ( wasSpawn ) {
-				ImGui::PopStyleColor();
+				ImGui::PopStyleColor( 3 );
+			}
+
+			const bool clearFlags = !mapData->tiles[y * mapData->width + x].flags;
+			if ( clearFlags ) {
+				ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+				ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+				ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+			}
+			if ( ImGui::Button( "Clear All Tile Flags" ) ) {
+				mapData->tiles[y * mapData->width + x].flags = 0;
+				m_bMapModified = true;
+				m_bMapNameUpdated = false;
+			}
+			if ( clearFlags ) {
+				ImGui::PopStyleColor( 3 );
 			}
 
 			if ( ImGui::Button( "Done" ) ) {
@@ -1020,6 +1156,7 @@ void CMapInfoDlg::Draw( void )
 
 		ImGui::TextUnformatted( "Name: " );
 		ImGui::SameLine();
+		memcpy( m_szTempMapName, mapData->name, sizeof(mapData->name) );
 		if ( ImGui::InputText( "##MapName", m_szTempMapName, MAX_NPATH - strlen( MAP_FILE_EXT ), ImGuiInputTextFlags_EnterReturnsTrue ) ) {
 			snprintf( mapData->name, sizeof(mapData->name), "%s.map", m_szTempMapName );
 			m_bMapModified = true;
@@ -1131,14 +1268,17 @@ void CMapInfoDlg::Draw( void )
 					if ( ImGui::Selectable( "item", ( m_nSelectedSpawnEntityType == ET_ITEM ) ) ) {
 						m_nSelectedSpawnEntityType = ET_ITEM;
 						m_bMapModified = true;
+						m_bMapNameUpdated = false;
 					}
 					if ( ImGui::Selectable( "mob", ( m_nSelectedSpawnEntityType == ET_MOB ) ) ) {
 						m_nSelectedSpawnEntityType = ET_MOB;
 						m_bMapModified = true;
+						m_bMapNameUpdated = false;
 					}
 					if ( ImGui::Selectable( "bot", ( m_nSelectedSpawnEntityType == ET_BOT ) ) ) {
 						m_nSelectedSpawnEntityType = ET_BOT;
 						m_bMapModified = true;
+						m_bMapNameUpdated = false;
 					}
 					ImGui::EndCombo();
 				}

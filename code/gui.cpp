@@ -110,10 +110,10 @@ static const char *mapdraw_frag_shader =
 "       else {\n"
 "           CalcLighting();\n"
 "       }\n"
-"       if ( u_TileSelected && u_TileSelectionX == v_WorldPos.x && u_TileSelectionY == v_WorldPos.y ) {\n"
-"           a_Color.rgb += v_Color.rgb;\n"
-"       }\n"
 "       a_Color.rgb *= u_AmbientLightColor;\n"
+"   }\n"
+"   if ( u_TileSelected && u_TileSelectionX == v_WorldPos.x && u_TileSelectionY == v_WorldPos.y ) {\n"
+"       a_Color.rgb = v_Color.rgb;\n"
 "   }\n"
 "}\n";
 
@@ -305,11 +305,11 @@ void CMapRenderer::DrawMap( void )
                 vtx[i].uv[0] = mapData->texcoords[mapData->tiles[y * mapData->width + x].index][i][0];
                 vtx[i].uv[1] = mapData->texcoords[mapData->tiles[y * mapData->width + x].index][i][1];
 
-                vtx[i].worldPos[0] = pos.x;
-                vtx[i].worldPos[1] = pos.y;
+                vtx[i].worldPos[0] = x;
+                vtx[i].worldPos[1] = y;
 
                 if ( m_bTileSelectOn && m_nTileSelectX == x && m_nTileSelectY == y ) {
-                    vtx[i].color = { 0.0f, 0.90f, 0.0f, 1.0f };
+                    vtx[i].color = { 0.0f, 1.0f, 0.0f, 1.0f };
                 }
             }
 

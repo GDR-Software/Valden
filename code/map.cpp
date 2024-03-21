@@ -7,6 +7,7 @@ std::vector<mapData_t> g_MapCache;
 static const char *unnamed_map = "unnamed.map";
 static spriteCoord_t *s_pSpritePOD;
 static maptile_t *s_pTilePOD;
+static bool s_bLoadingMap;
 
 typedef enum {
     CHUNK_CHECKPOINT,
@@ -34,6 +35,23 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
         }
         
         if ( tok[0] == '}' ) {
+            switch ( type ) {
+            case CHUNK_CHECKPOINT:
+                tmpData->numCheckpoints++;
+                break;
+            case CHUNK_SPAWN:
+                tmpData->numSpawns++;
+                break;
+            case CHUNK_LIGHT:
+                tmpData->numLights++;
+                break;
+            case CHUNK_TILE:
+                tmpData->numTiles++;
+                break;
+            case CHUNK_TEXCOORDS:
+                tmpData->tileset.numTiles++;
+                break;
+            };
             break;
         }
         //
@@ -46,23 +64,18 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
                 return false;
             }
             else if ( !N_stricmp( tok, "map_checkpoint" ) ) {
-                tmpData->numCheckpoints++;
                 type = CHUNK_CHECKPOINT;
             }
             else if ( !N_stricmp( tok, "map_spawn" ) ) {
-                tmpData->numSpawns++;
                 type = CHUNK_SPAWN;
             }
             else if ( !N_stricmp(tok, "map_light" ) ) {
-                tmpData->numLights++;
                 type = CHUNK_LIGHT;
             }
             else if ( !N_stricmp( tok, "texcoords" ) ) {
-                tmpData->tileset.numTiles++;
                 type = CHUNK_TEXCOORDS;
             }
             else if ( !N_stricmp( tok, "map_tile" ) ) {
-                tmpData->numTiles++;
                 type = CHUNK_TILE;
             }
             else if ( !N_stricmp( tok, "tilesetdata" ) ) {
@@ -218,21 +231,21 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
         //
         // tileHeight <height>
         //
-        else if (!N_stricmp(tok, "tileHeight")) {
-            tok = COM_ParseExt(text, qfalse);
-            if (!tok[0]) {
-                COM_ParseError("missing parameter for tileset tileHeight");
+        else if ( !N_stricmp( tok, "tileHeight" ) ) {
+            tok = COM_ParseExt( text, qfalse );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for tileset tileHeight" );
                 return false;
             }
-            tmpData->tileset.tileHeight = (uint32_t)atoi(tok);
+            tmpData->tileset.tileHeight = (uint32_t)atoi( tok );
         }
         //
         // texIndex <index>
         //
-        else if (!N_stricmp(tok, "texIndex")) {
-            tok = COM_ParseExt(text, qfalse);
-            if (!tok[0]) {
-                COM_ParseError("missing parameter for map tile texIndex");
+        else if ( !N_stricmp( tok, "texIndex" ) ) {
+            tok = COM_ParseExt( text, qfalse );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for map tile texIndex" );
                 return false;
             }
             tmpData->tiles[tmpData->numTiles].index = (int32_t)atoi( tok );
@@ -240,21 +253,21 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
         //
         // id <entityid>
         //
-        else if (!N_stricmp(tok, "id")) {
-            if (type != CHUNK_SPAWN) {
-                COM_ParseError("found parameter \"id\" in chunk that isn't a spawn");
+        else if ( !N_stricmp( tok, "id" ) ) {
+            if ( type != CHUNK_SPAWN ) {
+                COM_ParseError( "found parameter \"id\" in chunk that isn't a spawn" );
                 return false;
             }
-            tok = COM_ParseExt(text, qfalse);
-            if (!tok[0]) {
-                COM_ParseError("missing parameter for spawn entity id");
+            tok = COM_ParseExt( text, qfalse );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for spawn entity id" );
                 return false;
             }
             tmpData->spawns[tmpData->numSpawns].entityid = atoi( tok );
 
             bool valid = false;
             for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[tmpData->spawns[tmpData->numSpawns].entitytype] ) {
-                if ( it.m_Id == (uint32_t)tmpData->spawns[tmpData->numSpawns].entityid ) {
+                if ( it.m_Id == tmpData->spawns[tmpData->numSpawns].entityid ) {
                     valid = true;
                     break;
                 }
@@ -267,14 +280,14 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
         //
         // flags <flags>
         //
-        else if (!N_stricmp(tok, "flags")) {
-            if (type != CHUNK_TILE) {
-                COM_ParseError("found parameter \"flags\" in chunk that isn't a tile");
+        else if ( !N_stricmp( tok, "flags" ) ) {
+            if ( type != CHUNK_TILE ) {
+                COM_ParseError( "found parameter \"flags\" in chunk that isn't a tile" );
                 return false;
             }
-            tok = COM_ParseExt(text, qfalse);
-            if (!tok[0]) {
-                COM_ParseError("missing parameter for tile flags");
+            tok = COM_ParseExt( text, qfalse );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for tile flags" );
                 return false;
             }
             tmpData->tiles[tmpData->numTiles].flags = (uint32_t)ParseHex( tok );
@@ -283,48 +296,54 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
         // sides <sides...>
         //
         else if ( !N_stricmp( tok, "sides" ) ) {
-            int sides[5];
-            if ( !Parse1DMatrix( text, 5, (float *)sides ) ) {
-                COM_ParseError("failed to parse sides for map tile");
+            int sides[NUMDIRS];
+            if ( !Parse1DMatrix( text, NUMDIRS, (float *)sides ) ) {
+                COM_ParseError( "failed to parse sides for map tile" );
                 return false;
             }
-            tmpData->tiles[tmpData->numTiles].sides[0] = sides[0];
-            tmpData->tiles[tmpData->numTiles].sides[1] = sides[1];
-            tmpData->tiles[tmpData->numTiles].sides[2] = sides[2];
-            tmpData->tiles[tmpData->numTiles].sides[3] = sides[3];
-            tmpData->tiles[tmpData->numTiles].sides[4] = sides[4];
+            tmpData->tiles[tmpData->numTiles].sides[DIR_NORTH]       = sides[DIR_NORTH];
+            tmpData->tiles[tmpData->numTiles].sides[DIR_NORTH_EAST]  = sides[DIR_NORTH_EAST];
+            tmpData->tiles[tmpData->numTiles].sides[DIR_EAST]        = sides[DIR_EAST];
+            tmpData->tiles[tmpData->numTiles].sides[DIR_SOUTH_EAST]  = sides[DIR_SOUTH_EAST];
+            tmpData->tiles[tmpData->numTiles].sides[DIR_SOUTH]       = sides[DIR_SOUTH];
+            tmpData->tiles[tmpData->numTiles].sides[DIR_SOUTH_WEST]  = sides[DIR_SOUTH_WEST];
+            tmpData->tiles[tmpData->numTiles].sides[DIR_WEST]        = sides[DIR_WEST];
+            tmpData->tiles[tmpData->numTiles].sides[DIR_NORTH_WEST]  = sides[DIR_NORTH_WEST];
+            tmpData->tiles[tmpData->numTiles].sides[DIR_NULL]        = sides[DIR_NULL];
         }
         //
         // pos <x y elevation>
         //
-        else if (!N_stricmp(tok, "pos")) {
+        else if ( !N_stricmp(tok, "pos" ) ) {
             uint32_t *xyz;
-            if (type == CHUNK_INVALID) {
-                COM_ParseError("chunk type not specified before parameters");
+            if ( type == CHUNK_INVALID ) {
+                COM_ParseError( "chunk type not specified before parameters" );
                 return false;
-            } else if (type == CHUNK_CHECKPOINT) {
+            } else if ( type == CHUNK_CHECKPOINT ) {
                 xyz = tmpData->checkpoints[tmpData->numCheckpoints].xyz;
-            } else if (type == CHUNK_SPAWN) {
+            } else if ( type == CHUNK_SPAWN ) {
                 xyz = tmpData->spawns[tmpData->numSpawns].xyz;
+            } else if ( type == CHUNK_TILE ) {
+                xyz = tmpData->tiles[tmpData->numTiles].pos;
             }
 
-            tok = COM_ParseExt(text, qfalse);
-            if (!tok[0]) {
-                COM_ParseError("missing parameter for pos.x");
+            tok = COM_ParseExt( text, qfalse );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for pos.x" );
                 return false;
             }
             xyz[0] = clamp( atoi( tok ), 0, tmpData->width );
 
-            tok = COM_ParseExt(text, qfalse);
-            if (!tok[0]) {
-                COM_ParseError("missing parameter for pos.y");
+            tok = COM_ParseExt( text, qfalse );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for pos.y" );
                 return false;
             }
             xyz[1] = clamp( atoi( tok ), 0, tmpData->height );
             
-            tok = COM_ParseExt(text, qfalse);
-            if (!tok[0]) {
-                COM_ParseError("missing parameter for pos.elevation");
+            tok = COM_ParseExt( text, qfalse );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for pos.elevation" );
                 return false;
             }
             xyz[2] = (uint32_t)atoi( tok );
@@ -333,14 +352,14 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
         // brightness <value>
         //
         else if ( !N_stricmp( tok, "brightness" ) ) {
-            if (type != CHUNK_LIGHT) {
-                COM_ParseError("found parameter \"brightness\" in chunk that isn't a light");
+            if ( type != CHUNK_LIGHT ) {
+                COM_ParseError( "found parameter \"brightness\" in chunk that isn't a light" );
                 return false;
             }
 
-            tok = COM_ParseExt(text, qfalse);
+            tok = COM_ParseExt( text, qfalse );
             if (!tok[0]) {
-                COM_ParseError("missing parameter for brightness");
+                COM_ParseError( "missing parameter for brightness" );
                 return false;
             }
             tmpData->lights[tmpData->numLights].brightness = atof( tok );
@@ -349,13 +368,13 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
         // color <r g b a>
         //
         else if ( !N_stricmp( tok, "color" ) ) {
-            if (type != CHUNK_LIGHT) {
-                COM_ParseError("found parameter \"color\" in chunk that isn't a light");
+            if ( type != CHUNK_LIGHT ) {
+                COM_ParseError( "found parameter \"color\" in chunk that isn't a light" );
                 return false;
             }
 
             if ( !Parse1DMatrix( text, 3, tmpData->lights[tmpData->numLights].color ) ) {
-                COM_ParseError("failed to parse light color");
+                COM_ParseError( "failed to parse light color" );
                 return false;
             }
         }
@@ -371,39 +390,23 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
             tmpData->lights[tmpData->numLights].range = atof( tok );
         }
         //
-        // index <texCoordIndex>
-        //
-        else if ( !N_stricmp( tok, "index" ) ) {
-            tok = COM_ParseExt( text, qfalse );
-            if ( !tok[0] ) {
-                COM_ParseError( "missing parameter for texcoords \"index\"" );
-                return false;
-            }
-            const int index = atoi( tok );
-            for ( uint32_t i = 0; i < tmpData->numTiles; i++ ) {
-                if ( tmpData->tiles[i].index == index ) {
-
-                }
-            }
-        }
-        //
         // origin <x y elevation>
         //
-        else if (!N_stricmp(tok, "origin")) {
-            if (type != CHUNK_LIGHT) {
-                COM_ParseError("found parameter \"origin\" in chunk that isn't a light");
+        else if ( !N_stricmp( tok, "origin" ) ) {
+            if ( type != CHUNK_LIGHT ) {
+                COM_ParseError( "found parameter \"origin\" in chunk that isn't a light" );
                 return false;
             }
 
             uvec3_t origin;
-            if (!Parse1DMatrix(text, 3, (float *)origin)) {
-                COM_ParseError("failed to parse light origin");
+            if ( !Parse1DMatrix( text, 3, (float *)origin ) ) {
+                COM_ParseError( "failed to parse light origin" );
                 return false;
             }
             VectorCopy( tmpData->lights[tmpData->numLights].origin, origin );
         }
         else {
-            COM_ParseWarning("unrecognized token '%s'", tok);
+            COM_ParseWarning( "unrecognized token '%s'", tok );
             continue;
         }
     }
@@ -489,10 +492,9 @@ static bool ParseMap(const char **text, const char *path, mapData_t *tmpData)
                 COM_ParseError( "missing parameter for map numTiles" );
                 return false;
             }
-            tmpData->tiles = (maptile_t *)alloca( sizeof(maptile_t) * atoi( tok ) );
         }
         else {
-            COM_ParseWarning("unrecognized token: '%s'", tok);
+            COM_ParseWarning( "unrecognized token: '%s'", tok );
         }
     }
     return true;
@@ -535,6 +537,8 @@ void Map_LoadFile( const char *filename )
     text = &ptr;
 
     memset( &tmpData, 0, sizeof(tmpData) );
+
+    s_bLoadingMap = true;
 
     if ( !s_pTilePOD ) {
         s_pTilePOD = (maptile_t *)GetMemory( sizeof(maptile_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
@@ -580,6 +584,8 @@ void Map_LoadFile( const char *filename )
         mapData = NULL;
     }
 
+    s_bLoadingMap = true;
+
     FreeMemory( f.b );
 }
 
@@ -622,21 +628,32 @@ static void Map_ArchiveSpawns( IDataStream *out )
 static void Map_ArchiveTiles( IDataStream *out )
 {
     uint32_t y, x;
-    uint32_t i;
+    int i;
     char buf[1024];
 
-    for ( y = 0; y < mapData->height; y++ ) {
-        for ( x = 0; x < mapData->width; x++ ) {
-            sprintf( buf,
-                "\t{\n"
-                "\t\tclassname \"map_tile\"\n"
-                "\t\tpos %i %i %i\n"
-                "\t\ttexIndex %i\n"
-                "\t}\n"
-            , y, x, 0, mapData->tiles[y * mapData->width + x].index );
+    for ( i = 0; i < mapData->numTiles; i++ ) {
+        sprintf( buf,
+            "\t{\n"
+            "\t\tclassname \"map_tile\"\n"
+            "\t\tpos %i %i %i\n"
+            "\t\tflags %x\n"
+            "\t\ttexIndex %i\n"
+            "\t\tsides ( %i %i %i %i %i %i %i %i %i )\n"
+            "\t}\n"
+        , mapData->tiles[i].pos[0], mapData->tiles[i].pos[1], mapData->tiles[i].pos[2],
+        mapData->tiles[i].flags,
+        mapData->tiles[i].index,
+        mapData->tiles[i].sides[DIR_NORTH],
+        mapData->tiles[i].sides[DIR_NORTH_EAST],
+        mapData->tiles[i].sides[DIR_EAST],
+        mapData->tiles[i].sides[DIR_SOUTH_EAST],
+        mapData->tiles[i].sides[DIR_SOUTH],
+        mapData->tiles[i].sides[DIR_SOUTH_WEST],
+        mapData->tiles[i].sides[DIR_WEST],
+        mapData->tiles[i].sides[DIR_NORTH_WEST],
+        mapData->tiles[i].sides[DIR_NULL] );
 
-            out->Write( buf, strlen( buf ) );
-        }
+        out->Write( buf, strlen( buf ) );
     }
 }
 
@@ -647,7 +664,7 @@ void Map_Save( void )
 
     outfile = g_pProjectManager->GetProject()->m_FilePath + g_pProjectManager->GetProject()->m_AssetPath + va( "%cmaps%c%s", PATH_SEP, PATH_SEP, mapData->name );
 
-    Log_Printf( "Map_Save: arching map file '%s'...\n", outfile.c_str() );
+    Log_Printf( "Map_Save: archiving map file '%s'...\n", outfile.c_str() );
 
     if ( !out.Open( outfile.c_str(), "w" ) ) {
         Error( "Map_Save: failed to create map file '%s'", outfile.c_str() );
@@ -716,6 +733,8 @@ void Map_Save( void )
 
 void Map_New( void )
 {
+    uint32_t y, x;
+
     Map_Free();
 
     mapData = std::addressof( g_MapCache.emplace_back() );
@@ -734,9 +753,8 @@ void Map_New( void )
     mapData->tiles = s_pTilePOD;
     mapData->texcoords = s_pSpritePOD;
 
-    for ( uint32_t y = 0; y < MAX_MAP_HEIGHT; y++ ) {
-        for ( uint32_t x = 0; x < MAX_MAP_WIDTH; x++ ) {
-            mapData->tiles[y * MAX_MAP_WIDTH + x].index = 0;
+    for ( y = 0; y < MAX_MAP_HEIGHT; y++ ) {
+        for ( x = 0; x < MAX_MAP_WIDTH; x++ ) {
             mapData->tiles[y * MAX_MAP_WIDTH + x].pos[0] = x;
             mapData->tiles[y * MAX_MAP_WIDTH + x].pos[1] = y;
         }

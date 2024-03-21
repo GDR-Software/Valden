@@ -1,6 +1,6 @@
 CC			=distcc g++ -std=c++17
 CFLAGS		=-Ivendor/imgui/ -Ivendor/GLFW/include/ -Ivendor/glm/ -Ivendor/stb_image/ \
-			-IWalnut/src/ -Icode/ -Ivendor/imgui/backends/ -Iinclude -Ivendor/
+			-IWalnut/src/ -Icode/ -Ivendor/imgui/backends/ -Iinclude -Ivendor/ -DVALDEN
 O			=obj
 SDIR		=Walnut/src/Walnut
 EXE			=Valden
