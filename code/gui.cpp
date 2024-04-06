@@ -9,7 +9,7 @@
 std::shared_ptr<CMapRenderer> g_pMapDrawer;
 
 static const char *mapdraw_vert_shader =
-"#version 330 core\n"
+"#version 450 core\n"
 "\n"
 "layout( location = 0 ) in vec4 a_Color;\n"
 "layout( location = 1 ) in vec3 a_Position;\n"
@@ -32,7 +32,7 @@ static const char *mapdraw_vert_shader =
 "}\n";
 
 static const char *mapdraw_frag_shader =
-"#version 330 core\n"
+"#version 450 core\n"
 "\n"
 "layout( location = 0 ) out vec4 a_Color;\n"
 "\n"
@@ -46,13 +46,24 @@ static const char *mapdraw_frag_shader =
 "uniform sampler2D u_NormalMap;\n"
 "uniform sampler2D u_AmbientOcclusionMap;\n"
 "\n"
+"#define POINT_LIGHT 0\n"
+"#define SPOT_LIGHT 1\n"
+"#define AREA_LIGHT 2\n"
+"\n"
 "struct Light {\n"
-"   vec3 position;\n"
-"   vec3 ambient;\n"
+"   vec4 color;\n"
+"   uvec3 origin;\n"
+"   float brightness;\n"
 "   float range;\n"
+"   float linear;\n"
+"   float quadratic;\n"
+"   float constant;\n"
+"   int type;\n"
 "};\n"
-"#define MAX_LIGHTS 256\n"
-"uniform Light u_LightData[MAX_LIGHTS];\n"
+"#define MAX_LIGHTS 1024\n"
+"layout( std140, binding = 0 ) uniform LightData {\n"
+"   Light lights[MAX_LIGHTS];\n"
+"};\n"
 "uniform int u_NumLights;\n"
 "uniform vec3 u_AmbientLightColor;\n"
 "\n"
@@ -74,29 +85,29 @@ static const char *mapdraw_frag_shader =
 "   a_Color.rgb *= normal * 0.5 + 0.5;\n"
 "}\n"
 "\n"
-"void CalcLighting() {\n"
-"   a_Color = vec4( 0.0, 0.0, 0.0, 1.0 );\n"
+"void CalcLighting() {\n"\
+"   a_Color = texture( u_DiffuseMap, v_TexCoords );\n"
 "   if ( u_UseNormalMapping ) {\n"
 "       CalcNormal();\n"
 "   }\n"
 "   if ( u_UseSpecularMapping ) {\n"
 "       a_Color.rgb += texture( u_SpecularMap, v_TexCoords ).rgb;\n"
 "   }\n"
-"   if ( u_NumLights == 0 && u_UseDiffuseMapping ) {\n"
-"       a_Color.rgb += texture( u_DiffuseMap, v_TexCoords ).rgb;\n"
-"   }\n"
+//"   if ( u_NumLights == 0 && u_UseDiffuseMapping ) {\n"
+//"       a_Color.rgb += texture( u_DiffuseMap, v_TexCoords ).rgb;\n"
+//"   }\n"
 "   for ( int i = 0; i < u_NumLights; i++ ) {\n"
-"       a_Color.rgb += u_LightData[i].ambient;\n"
 "\n"
 "       vec3 diffuse = a_Color.rgb;\n"
-"       float dist = distance( v_WorldPos, u_LightData[i].position );\n"
+"       float dist = distance( v_WorldPos, lights[i].origin );\n"
 "       float diff = 0.0;\n"
-"       if ( dist <= u_LightData[i].range ) {\n"
-"           diff = 1.0 - abs( dist / u_LightData[i].range );\n"
+"       if ( dist <= lights[i].range ) {\n"
+"           diff = 1.0 - abs( dist / lights[i].range );\n"
 "       }\n"
-"       diffuse = max( diff * diffuse, diffuse );\n"
+"       diffuse = max( diff * ( diffuse + vec3( lights[i].color ) ), diffuse );\n"
 "       a_Color.rgb += diffuse;\n"
 "   }\n"
+"   a_Color.rgb += texture( u_DiffuseMap, v_TexCoords ).rgb;\n"
 "}\n"
 "\n"
 "void main() {\n"
@@ -268,7 +279,10 @@ void CMapRenderer::DrawMap( void )
     glUniform1i( GetUniform( "u_UseNormalMapping" ), mapData->textures[Walnut::TB_NORMALMAP] ? 1 : 0 );
     glUniform1i( GetUniform( "u_UseAmbientOcclusionMapping" ), mapData->textures[Walnut::TB_SHADOWMAP] ? 1 : 0 );
 
-    glUniform1i( GetUniform( "u_NumLights" ), 0 );
+    glUniform1i( GetUniform( "u_NumLights" ), mapData->numLights );
+    glBindBuffer( GL_UNIFORM_BUFFER, m_LightBuffer );
+    glBufferSubData( GL_UNIFORM_BUFFER, 0, sizeof( maplight_t ) * mapData->numLights, mapData->lights );
+    glBindBuffer( GL_UNIFORM_BUFFER, 0 );
 
     glActiveTexture( GL_TEXTURE0 );
     glBindTexture( GL_TEXTURE_2D, mapData->textures[Walnut::TB_DIFFUSEMAP] ? mapData->textures[Walnut::TB_DIFFUSEMAP]->GetID() : 0 );
@@ -307,6 +321,7 @@ void CMapRenderer::DrawMap( void )
 
                 vtx[i].worldPos[0] = x;
                 vtx[i].worldPos[1] = y;
+                vtx[i].worldPos[2] = 0.0f;
 
                 if ( m_bTileSelectOn && m_nTileSelectX == x && m_nTileSelectY == y ) {
                     vtx[i].color = { 0.0f, 1.0f, 0.0f, 1.0f };
@@ -451,6 +466,11 @@ void CMapRenderer::OnAttach( void )
         offset += 4;
     }
 
+    glGenBuffers( 1, &m_LightBuffer );
+    glBindBuffer( GL_UNIFORM_BUFFER, m_LightBuffer );
+    glBufferData( GL_UNIFORM_BUFFER, sizeof( mapData->lights ), NULL, GL_STATIC_DRAW );
+    glBindBuffer( GL_UNIFORM_BUFFER, 0 );
+
     glGenVertexArrays( 1, &m_VertexArray );
     glGenBuffers( 1, &m_VertexBuffer );
     glGenBuffers( 1, &m_IndexBuffer );
@@ -494,6 +514,12 @@ void CMapRenderer::OnAttach( void )
 
     glUseProgram( m_Shader );
 
+    glBindBuffer( GL_UNIFORM_BUFFER, m_LightBuffer );
+    m_LightUniform = glGetUniformBlockIndex( m_Shader, "LightData" );
+    glUniformBlockBinding( m_Shader, m_LightUniform, 0 );
+    glBindBufferBase( GL_UNIFORM_BUFFER, 0, m_LightBuffer );
+    glBindBuffer( GL_UNIFORM_BUFFER, 0 );
+
     glDeleteShader( vertShader );
     glDeleteShader( fragShader );
     
@@ -524,6 +550,7 @@ void CMapRenderer::OnDetach( void )
     FreeMemory( m_pVertices );
     FreeMemory( m_pIndices );
 
+    glDeleteBuffers( 1, &m_LightBuffer );
     glDeleteBuffers( 1, &m_VertexBuffer );
     glDeleteBuffers( 1, &m_IndexBuffer );
     glDeleteVertexArrays( 1, &m_VertexArray );

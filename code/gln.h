@@ -269,8 +269,10 @@ void ParseCommandLine( char *lpCmdLine );
 
 const char *COM_ParseExt( const char **text, qboolean allowLineBreaks );
 
-typedef enum : uint32_t {
+typedef enum
+{
 	ET_ITEM,
+	ET_WEAPON,
 	ET_MOB,
 	ET_BOT,
 	ET_WALL, // a tile with pre-determined collision physics

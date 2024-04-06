@@ -379,6 +379,17 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
             }
         }
         //
+        // type <light_type>
+        //
+        else if ( !N_stricmp( tok, "type" ) ) {
+            tok = COM_ParseExt( text, qfalse );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for light type" );
+                return false;
+            }
+            tmpData->lights[tmpData->numLights].type = (lighttype_t)atoi( tok );
+        }
+        //
         // range <range>
         //
         else if ( !N_stricmp( tok, "range" ) ) {
@@ -589,6 +600,27 @@ void Map_LoadFile( const char *filename )
     FreeMemory( f.b );
 }
 
+static void Map_ArchiveLights( IDataStream *out )
+{
+    uint32_t i;
+    char buf[1024];
+
+    for ( i = 0; i < mapData->numLights; i++ ) {
+        sprintf( buf,
+            "\t{\n"
+            "\t\tclassname \"map_light\"\n"
+            "\t\torigin ( %i %i %i )\n"
+            "\t\trange %.3f\n"
+            "\t\tbrightness %.3f\n"
+            "\t\ttype %i\n"
+            "\t}\n"
+        , mapData->lights[i].origin[0], mapData->lights[i].origin[1], mapData->lights[i].origin[2],
+        mapData->lights[i].range, mapData->lights[i].brightness, mapData->lights[i].type );
+        
+        out->Write( buf, strlen( buf ) );
+    }
+}
+
 static void Map_ArchiveCheckpoints( IDataStream *out )
 {
     uint32_t i;
@@ -657,6 +689,80 @@ static void Map_ArchiveTiles( IDataStream *out )
     }
 }
 
+static void ArchiveEntityTypes( void )
+{
+    FileStream out;
+    char buf[2048];
+    std::string outfile;
+    uint32_t i;
+
+    outfile = g_pProjectManager->GetProject()->m_FilePath + g_pProjectManager->GetProject()->m_AssetPath + va( "%cscripts%centitydata.json", PATH_SEP, PATH_SEP );
+
+    Log_Printf( "ArchiveEntityTypes: writing project entity types to '%s'...\n", outfile.c_str() );
+
+    if ( !out.Open( outfile.c_str(), "w" ) ) {
+        Error( "ArchiveEntityTypes: failed to create json file '%s'", outfile.c_str() );
+    }
+
+    out.printf( "{\n" );
+
+    out.printf( "\t\"MobData\": [\n" );
+    const std::vector<entityInfo_t>& mobs = g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ];
+    for ( i = 0; i < mobs.size(); i++ ) {
+        sprintf( buf,
+            "\t\t{\n"
+            "\t\t\t\"Name\": \"%s\"\n"
+            "\t\t\t\"Id\": %u\n"
+            "\t\t}"
+        , mobs[i].m_Name.c_str(), mobs[i].m_Id );
+
+        out.Write( buf, strlen( buf ) );
+        if ( i != mobs.size() - 1 ) {
+            out.printf( "," );
+        }
+        out.printf( "\n" );
+    }
+    out.printf( "\t]\n" );
+
+    out.printf( "\t\"ItemData\": [\n" );
+    const std::vector<entityInfo_t>& items = g_pProjectManager->GetProject()->m_EntityList[ ET_ITEM ];
+    for ( i = 0; i < items.size(); i++ ) {
+        sprintf( buf,
+            "\t\t{\n"
+            "\t\t\t\"Name\": \"%s\"\n"
+            "\t\t\t\"Id\": %u\n"
+            "\t\t}"
+        , items[i].m_Name.c_str(), items[i].m_Id );
+
+        out.Write( buf, strlen( buf ) );
+        if ( i != items.size() - 1 ) {
+            out.printf( "," );
+        }
+        out.printf( "\n" );
+    }
+    out.printf( "\t]\n" );
+
+    out.printf( "\t\"WeaponData\": [\n" );
+    const std::vector<entityInfo_t>& weapons = g_pProjectManager->GetProject()->m_EntityList[ ET_WEAPON ];
+    for ( i = 0; i < mobs.size(); i++ ) {
+        sprintf( buf,
+            "\t\t{\n"
+            "\t\t\t\"Name\": \"%s\"\n"
+            "\t\t\t\"Id\": %u\n"
+            "\t\t}"
+        , mobs[i].m_Name.c_str(), mobs[i].m_Id );
+
+        out.Write( buf, strlen( buf ) );
+        if ( i != mobs.size() - 1 ) {
+            out.printf( "," );
+        }
+        out.printf( "\n" );
+    }
+    out.printf( "\t]\n" );
+
+    out.printf( "}\n" );
+}
+
 void Map_Save( void )
 {
     FileStream out;
@@ -717,6 +823,7 @@ void Map_Save( void )
     Map_ArchiveCheckpoints( &out );
     Map_ArchiveSpawns( &out );
     Map_ArchiveTiles( &out );
+    Map_ArchiveLights( &out );
 
     out.Write( "}\n", 2 );
 
@@ -814,25 +921,13 @@ static void Map_GenerateShader( void )
     COM_StripExtension( mapData->textures[Walnut::TB_DIFFUSEMAP]->GetName().c_str(), tmp, sizeof(tmp) );
 
     snprintf( buf, sizeof(buf),
-        "%s {\n"
+        "%s\n"
+        "{\n"
         "\tblendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA\n"
         "\trgbGen vertex\n"
     , tmp );
 
     file.Write( buf, strlen( buf ) );
-
-    //
-//    // diffuse stage
-//    //
-//    snprintf( buf, sizeof(buf),
-//        "\t{\n"
-//        "\t\tstage diffuseMap\n"
-//        "\t\tspecularReflectance %f\n"
-//        "\t\tgloss %f\n"
-//        "\t\troughness %f\n"
-//        "\t\tnormalScale %f %f\n"
-//        "\t\tspecularScale %f %f %f %f\n"
-//        "\t}\n");
 
     file.Close();
 }

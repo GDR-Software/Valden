@@ -60,18 +60,18 @@ CMapInfoDlg::CMapInfoDlg( void )
     m_bShow = true;
 }
 
-static void DrawVec3Control( const char *label, uvec3_t values, float resetValue = 0.0f )
+static void DrawVec3Control( const char *label, const char *id, uvec3_t values, float resetValue = 0.0f )
 {
 	ImGuiIO& io = ImGui::GetIO();
 	float lineHeight;
 	ImVec2 buttonSize;
 
-	ImGui::PushID( label );
+	ImGui::BeginTable( va( "##%s%s", label, id ), 2, ImGuiTableFlags_NoPadInnerX );
+//	ImGui::SetColumnWidth( 0, 100.0f );
 
-	ImGui::Columns( 2 );
-	ImGui::SetColumnWidth( 0, 100.0f );
+	ImGui::TableNextColumn();
 	ImGui::TextUnformatted( label );
-	ImGui::NextColumn();
+	ImGui::TableNextColumn();
 
 	ImGui::PushMultiItemsWidths( 3, ImGui::CalcItemWidth() );
 	ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2( 4, 4 ) );
@@ -82,13 +82,18 @@ static void DrawVec3Control( const char *label, uvec3_t values, float resetValue
 	ImGui::PushStyleColor( ImGuiCol_Button, ImVec4{ 0.8f, 0.1f, 0.15f, 1.0f } );
 	ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4{ 0.9f, 0.2f, 0.2f, 1.0f } );
 	ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4{ 0.8f, 0.1f, 0.15f, 1.0f } );
-	if ( ImGui::Button( "X", buttonSize ) ) {
+	if ( ImGui::Button( va( "X##%s", id ), buttonSize ) ) {
 		values[0] = resetValue;
+		g_pMapInfoDlg->m_bMapModified = true;
+		g_pMapInfoDlg->m_bMapNameUpdated = false;
 	}
 	ImGui::PopStyleColor( 3 );
 
 	ImGui::SameLine();
-	ImGui::DragInt( "##X", (int *)&values[0], 1, 0, mapData->width, "%u" );
+	if ( ImGui::DragInt( va( "##X%s", id ), (int *)&values[0], 1, 0, mapData->width, "%u" ) ) {
+		g_pMapInfoDlg->m_bMapModified = true;
+		g_pMapInfoDlg->m_bMapNameUpdated = false;
+	}
 	if ( values[0] < 0 ) {
 		values[0] = 0;
 	} else if ( values[0] > mapData->width ) {
@@ -101,13 +106,18 @@ static void DrawVec3Control( const char *label, uvec3_t values, float resetValue
 	ImGui::PushStyleColor( ImGuiCol_Button, ImVec4{ 0.2f, 0.7f, 0.2f, 1.0f } );
 	ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4{ 0.3f, 0.8f, 0.3f, 1.0f } );
 	ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4{ 0.2f, 0.7f, 0.2f, 1.0f } );
-	if ( ImGui::Button( "Y", buttonSize ) ) {
+	if ( ImGui::Button( va( "Y##%s", id ), buttonSize ) ) {
 		values[1] = resetValue;
+		g_pMapInfoDlg->m_bMapModified = true;
+		g_pMapInfoDlg->m_bMapNameUpdated = false;
 	}
 	ImGui::PopStyleColor( 3 );
 
 	ImGui::SameLine();
-	ImGui::DragInt( "##Y", (int *)&values[1], 1, 0, mapData->height, "%u" );
+	if ( ImGui::DragInt( va( "##Y%s", id ), (int *)&values[1], 1, 0, mapData->height, "%u" ) ) {
+		g_pMapInfoDlg->m_bMapModified = true;
+		g_pMapInfoDlg->m_bMapNameUpdated = false;
+	}
 	if ( values[1] < 0 ) {
 		values[1] = 0;
 	} else if ( values[1] > mapData->height ) {
@@ -120,13 +130,18 @@ static void DrawVec3Control( const char *label, uvec3_t values, float resetValue
 	ImGui::PushStyleColor( ImGuiCol_Button, ImVec4{ 0.1f, 0.25f, 0.8f, 1.0f } );
 	ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4{ 0.2f, 0.35f, 0.9f, 1.0f  } );
 	ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4{ 0.1f, 0.25f, 0.8f, 1.0f } );
-	if ( ImGui::Button( "Z", buttonSize ) ) {
+	if ( ImGui::Button( va( "Z##%s", id ), buttonSize ) ) {
 		values[2] = resetValue;
+		g_pMapInfoDlg->m_bMapModified = true;
+		g_pMapInfoDlg->m_bMapNameUpdated = false;
 	}
 	ImGui::PopStyleColor( 3 );
 
 	ImGui::SameLine();
-	ImGui::DragInt( "##Z", (int *)&values[2], 1, 0, 1, "%u" );
+	if ( ImGui::DragInt( va( "##Z%s", id ), (int *)&values[2], 1, 0, 1, "%u" ) ) {
+		g_pMapInfoDlg->m_bMapModified = true;
+		g_pMapInfoDlg->m_bMapNameUpdated = false;
+	}
 	if ( values[2] < 0 ) {
 		values[2] = 0;
 	} else if ( values[2] > 1 ) {
@@ -136,10 +151,7 @@ static void DrawVec3Control( const char *label, uvec3_t values, float resetValue
 	ImGui::PopItemWidth();
 
 	ImGui::PopStyleVar();
-
-	ImGui::Columns( 1 );
-
-	ImGui::PopID();
+	ImGui::EndTable();
 }
 
 void CMapInfoDlg::AddMob( void )
@@ -311,7 +323,7 @@ void CMapInfoDlg::AddBot( void )
 	else {
 		if ( ImGui::Button( "DONE" ) ) {
 			Log_Printf( "Adding new bot '%s' to project with ID %i...\n", m_szAddBotName, m_nAddBotId );
-			g_pProjectManager->GetProject()->m_EntityList[ET_MOB].emplace_back( entityInfo_t( m_szAddBotName, m_nAddBotId ) );
+			g_pProjectManager->GetProject()->m_EntityList[ET_BOT].emplace_back( entityInfo_t( m_szAddBotName, m_nAddBotId ) );
 			m_bHasAddBotWindow = false;
 			g_pEditor->m_bProjectModified = true;
 		}	
@@ -327,6 +339,67 @@ void CMapInfoDlg::AddBot( void )
 	ImGui::End();
 }
 
+
+void CMapInfoDlg::AddWeapon( void )
+{
+	if ( !m_bHasAddWeaponWindow ) {
+		return;
+	}
+
+	bool isUnique;
+
+	ImGui::Begin( "Add Weapon", &m_bHasAddWeaponWindow, ImGuiWindowFlags_NoCollapse );
+
+	ImGui::TextUnformatted( "Name: " );
+	ImGui::SameLine();
+	ImGui::InputText( "##AddWeaponName", m_szAddWeaponName, sizeof(m_szAddWeaponName) - 1 );
+
+	ImGui::TextUnformatted( "ID: " );
+	ImGui::SameLine();
+	ImGui::InputInt( "##AddWeaponId", &m_nAddWeaponId );
+
+	if ( ButtonWithTooltip( "Generate a Weapon ID", "automatically generate a unique weapon id" ) ) {
+		m_nAddWeaponId = g_pProjectManager->GetProject()->m_EntityList[ ET_WEAPON ].size();
+	}
+
+	ImGui::Separator();
+
+	isUnique = true;
+	for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[ ET_WEAPON ] ) {
+		if ( it.m_Id == m_nAddWeaponId || !N_stricmp( it.m_Name.c_str(), m_szAddWeaponName ) ) {
+			isUnique = false;
+		}
+	}
+
+	if ( !m_szAddWeaponName[0] || !isUnique ) {
+		ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+	}
+	if ( !isUnique ) {
+		ButtonWithTooltip( "DONE", "weapon entity doesn't have a unique name and/or id!" );
+	}
+	else if ( !m_szAddWeaponName[0] ) {
+		ButtonWithTooltip( "DONE", "weapon entity has no name" );
+	}
+	else {
+		if ( ImGui::Button( "DONE" ) ) {
+			Log_Printf( "Adding new weapon '%s' to project with ID %i...\n", m_szAddWeaponName, m_nAddWeaponId );
+			g_pProjectManager->GetProject()->m_EntityList[ET_WEAPON].emplace_back( entityInfo_t( m_szAddWeaponName, m_nAddWeaponId ) );
+			m_bHasAddWeaponWindow = false;
+			g_pEditor->m_bProjectModified = true;
+		}	
+	}
+	if ( !m_szAddWeaponName[0] || !isUnique ) {
+		ImGui::PopStyleColor( 3 );
+	}
+	ImGui::SameLine();
+	if ( ImGui::Button( "CANCEL" ) ) {
+		m_bHasAddWeaponWindow = false;
+	}
+
+	ImGui::End();
+}
 
 void CMapInfoDlg::ModifyMob( void )
 {
@@ -529,6 +602,65 @@ void CMapInfoDlg::ModifyBot( void )
 	ImGui::End();
 }
 
+void CMapInfoDlg::ModifyWeapon( void )
+{
+	if ( !m_bHasEditWeaponWindow ) {
+		return;
+	}
+
+	bool isUnique;
+
+	ImGui::Begin( "Modify Weapon", &m_bHasEditWeaponWindow, ImGuiWindowFlags_NoCollapse );
+
+	ImGui::TextUnformatted( "Name: " );
+	ImGui::SameLine();
+	ImGui::InputText( "##ModifyWeaponName", m_szEditWeaponName, sizeof(m_szEditWeaponName) - 1 );
+
+	ImGui::Separator();
+
+	isUnique = true;
+	for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[ ET_WEAPON ] ) {
+		if ( !N_stricmp( it.m_Name.c_str(), m_szEditWeaponName ) ) {
+			isUnique = false;
+		}
+	}
+
+	if ( !m_szEditWeaponName[0] || !isUnique ) {
+		ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+		ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4( 0.75f, 0.75f, 0.75f, 1.0f ) );
+	}
+	if ( !isUnique ) {
+		ButtonWithTooltip( "DONE", "weapon entity doesn't have a unique name!" );
+	}
+	else if ( !m_szEditWeaponName[0] ) {
+		ButtonWithTooltip( "DONE", "weapon entity has no name" );
+	}
+	else {
+		if ( ImGui::Button( "DONE" ) ) {
+			m_bHasEditWeaponWindow = false;
+			m_pCurrentWeapon->m_Name = m_szEditWeaponName;
+			m_pCurrentWeapon->m_Id = m_nEditWeaponId;
+			g_pEditor->m_bProjectModified = true;
+		}	
+	}
+	if ( !m_szEditWeaponName[0] || !isUnique ) {
+		ImGui::PopStyleColor( 3 );
+	}
+	ImGui::SameLine();
+	if ( ImGui::Button( "CANCEL" ) ) {
+		m_bHasEditWeaponWindow = false;
+	}
+	ImGui::SameLine();
+	if ( ImGui::Button( "DELETE" ) ) {
+		g_pProjectManager->GetProject()->m_EntityList[ ET_WEAPON ].erase( m_pCurrentWeapon );
+		m_bHasEditWeaponWindow = false;
+		g_pEditor->m_bProjectModified = true;
+	}
+
+	ImGui::End();
+}
+
 void CMapInfoDlg::ProjectSettingsDlg( void )
 {
 	if ( !m_bHasProjectWindow ) {
@@ -594,6 +726,21 @@ void CMapInfoDlg::ProjectSettingsDlg( void )
 			}
 			if ( ImGui::Button( "Add Item" ) ) {
 				m_bHasAddItemWindow = true;
+			}
+
+			ImGui::EndCombo();
+		}
+
+		if ( ImGui::BeginCombo( "Weapon List", "Weapon List" ) ) {
+			std::vector<entityInfo_t>& entityList = g_pProjectManager->GetProject()->m_EntityList[ ET_WEAPON ];
+			for ( auto it = entityList.begin(); it != entityList.end(); it++ ) {
+				if ( ImGui::Selectable( va( "%s (ID: %i)", it->m_Name.c_str(), it->m_Id ), ( m_pCurrentWeapon == it ) ) ) {
+					m_pCurrentWeapon = it;
+					m_bHasEditWeaponWindow = true;
+				}
+			}
+			if ( ImGui::Button( "Add Weapon" ) ) {
+				m_bHasAddWeaponWindow = true;
 			}
 
 			ImGui::EndCombo();
@@ -1046,7 +1193,7 @@ void CMapInfoDlg::Draw( void )
 		if ( ImGui::Begin( "Editing Checkpoint", &m_bHasCheckpointWindow, ImGuiWindowFlags_AlwaysAutoResize ) ) {
 			ImGui::SetWindowFocus();
 			ImGui::SeparatorText( va( "checkpoint %u", (unsigned)( m_pCheckpointEdit - mapData->checkpoints ) ) );
-			DrawVec3Control( "position", m_pCheckpointEdit->xyz );
+			DrawVec3Control( "position", "checkpoint", m_pCheckpointEdit->xyz );
 			if ( ImGui::Button( "delete" ) ) {
 				mapData->numCheckpoints--;
 				m_bMapModified = true;
@@ -1063,7 +1210,7 @@ void CMapInfoDlg::Draw( void )
 		if ( ImGui::Begin( "Editing Spawn", &m_bHasSpawnWindow, ImGuiWindowFlags_AlwaysAutoResize ) ) {
 			ImGui::SetWindowFocus();
 			ImGui::SeparatorText( va( "spawn %u", (unsigned)( m_pSpawnEdit - mapData->spawns ) ) );
-			DrawVec3Control( "position", m_pSpawnEdit->xyz );
+			DrawVec3Control( "position", "spawn", m_pSpawnEdit->xyz );
 			if ( ImGui::Button( "delete" ) ) {
 				mapData->numSpawns--;
 				m_bMapModified = true;
@@ -1080,7 +1227,7 @@ void CMapInfoDlg::Draw( void )
 		if ( ImGui::Begin( "Editing Light", &m_bHasLightWindow, ImGuiWindowFlags_AlwaysAutoResize ) ) {
 			ImGui::SetWindowFocus();
 			ImGui::SeparatorText( va( "light %u", (unsigned)( m_pLightEdit - mapData->lights ) ) );
-			DrawVec3Control( "position", m_pLightEdit->origin );
+			DrawVec3Control( "position", "light", m_pLightEdit->origin );
 			if ( ImGui::SliderFloat( "brightness", &m_pLightEdit->range, 0.5f, 200.0f ) ) {
 				m_bMapModified = true;
 			}
@@ -1195,19 +1342,19 @@ void CMapInfoDlg::Draw( void )
 
 		ImGui::NewLine();
 
+/*
 		ImGui::SeparatorText( "Lights" );
 		for ( i = 0; i < mapData->numLights; i++ ) {
 			ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, ImVec2( 4, 4 ) );
 
 			open = ImGui::TreeNodeEx( (void *)(uintptr_t)&mapData->lights[i], treeNodeFlags, "light %u", i );
-			ImGui::SameLine();
-			if ( ButtonWithTooltip( "+", "Edit Light" ) ) {
+			if ( ImGui::Button( "Edit Light" )) {
 				m_pLightEdit = &mapData->lights[i];
 				m_bHasLightWindow = true;
 			}
 
 			if ( open ) {
-				DrawVec3Control( "position", mapData->checkpoints[i].xyz );
+				DrawVec3Control( "positions", "EditLight", mapData->spawns[i].xyz );
 				ImGui::TreePop();
 			}
 			ImGui::PopStyleVar();
@@ -1215,20 +1362,20 @@ void CMapInfoDlg::Draw( void )
 		if ( ButtonWithTooltip( "Add Light", "Add a light object to the map" ) ) {
 			CreateLight();
 		}
+		*/
 
 		ImGui::SeparatorText( "Checkpoints" );
 	    for ( i = 0; i < mapData->numCheckpoints; i++ ) {
 			ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, ImVec2( 4, 4 ) );
 
 			open = ImGui::TreeNodeEx( (void *)(uintptr_t)&mapData->checkpoints[i], treeNodeFlags, "checkpoint %u", i );
-			ImGui::SameLine();
-			if ( ButtonWithTooltip( "+", "Edit Checkpoint" ) ) {
-				m_pCheckpointEdit = &mapData->checkpoints[i];
-				m_bHasCheckpointWindow = true;
-			}
 
 			if ( open ) {
-				DrawVec3Control( "position", mapData->checkpoints[i].xyz );
+				if ( ImGui::Button( "Edit Checkpoint" ) ) {
+					m_pCheckpointEdit = &mapData->checkpoints[i];
+					m_bHasCheckpointWindow = true;
+				}
+				DrawVec3Control( "position", "EditCheckpoint", mapData->checkpoints[i].xyz );
 				ImGui::TreePop();
 			}
 			ImGui::PopStyleVar();
@@ -1242,14 +1389,13 @@ void CMapInfoDlg::Draw( void )
 			ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, ImVec2( 4, 4 ) );
 
 			open = ImGui::TreeNodeEx( (void *)(uintptr_t)&mapData->spawns[i], treeNodeFlags, "spawn %u", i );
-			ImGui::SameLine();
-			if ( ButtonWithTooltip( "+", "Edit Spawn" ) ) {
-				m_pSpawnEdit = &mapData->spawns[i];
-				m_bHasSpawnWindow = true;
-			}
 
 			if ( open ) {
-				DrawVec3Control( "position", mapData->spawns[i].xyz );
+				if ( ImGui::Button( "Edit Spawn" ) ) {
+					m_pSpawnEdit = &mapData->spawns[i];
+					m_bHasSpawnWindow = true;
+				}
+				DrawVec3Control( "position", "EditSpawn", mapData->spawns[i].xyz );
 				if ( ImGui::BeginCombo( "Entity ID",
 					va( "%s", m_nSelectedSpawnEntityId != -1 ?
 					g_pProjectManager->GetProject()->m_EntityList[m_nSelectedSpawnEntityType][m_nSelectedSpawnEntityId].m_Name.c_str() : "Entity ID" ) ) )

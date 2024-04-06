@@ -69,6 +69,9 @@ public:
     GLuint m_VertexBuffer;
     GLuint m_IndexBuffer;
 
+    GLuint m_LightBuffer;
+    GLuint m_LightUniform;
+
     GLuint m_FrameBuffer;
     GLuint m_NormalBuffer;
     GLuint m_SpecularBuffer;

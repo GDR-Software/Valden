@@ -250,6 +250,12 @@ void CEditorLayer::OnUIRender( void )
 
 			if ( m_pCurrentEditor->m_bOpen ) {
 				m_pCurrentEditor->m_Editor.Render( m_pCurrentEditor->m_Filename.filename().c_str() );
+				if ( ImGui::IsKeyDown( ImGuiKey_LeftCtrl ) && ImGui::IsKeyDown( ImGuiKey_S )
+					&& m_pCurrentEditor->m_Editor.IsTextChanged() )
+				{
+					const std::string&& data = std::move( m_pCurrentEditor->m_Editor.GetText() );
+					WriteFile( m_pCurrentEditor->m_Filename.string().c_str(), data.data(), data.size() );
+				}
 			}
 		}
 		ImGui::End();

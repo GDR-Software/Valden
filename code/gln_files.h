@@ -263,6 +263,7 @@ typedef struct {
 	uint32_t version;
     uint32_t mapWidth;
     uint32_t mapHeight;
+    vec3_t ambientLightColor;
     lump_t lumps[NUMLUMPS];
 } mapheader_t;
 

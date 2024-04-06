@@ -350,7 +350,7 @@ void CPrefsDlg::Draw( void )
 
             break; }
         case 1: {
-            ImGui::SliderFloat( "Camera Movement Speed", &m_nCameraMoveSpeed, 2.0f, 32.0f );
+            ImGui::SliderFloat( "Camera Movement Speed", &m_nCameraMoveSpeed, 0.001f, 32.0f );
             if ( ImGui::IsItemHovered() ) {
                 ImGuiIO& io = ImGui::GetIO();
                 if ( io.MouseWheel > 0 ) {
@@ -362,8 +362,8 @@ void CPrefsDlg::Draw( void )
 
             if ( m_nCameraMoveSpeed > 32.0f ) {
                 m_nCameraMoveSpeed = 32.0f;
-            } else if ( m_nCameraMoveSpeed < 2.0f ) {
-                m_nCameraMoveSpeed = 2.0f;
+            } else if ( m_nCameraMoveSpeed < 0.001f ) {
+                m_nCameraMoveSpeed = 0.001f;
             }
 
             ImGui::SliderFloat( "Camera Rotation Speed", &m_nCameraRotationSpeed, 1.0f, 20.0f );
