@@ -4,3 +4,12 @@
 [submodule "vendor/imgui"]
 	path = vendor/imgui
 	url = https://github.com/ocornut/imgui.git
+[submodule "vendor/IconFontCppHeaders"]
+	path = vendor/IconFontCppHeaders
+	url = https://github.com/juliettef/IconFontCppHeaders.git
+[submodule "vendor/Font-Awesome"]
+	path = vendor/Font-Awesome
+	url = https://github.com/FortAwesome/Font-Awesome.git
+[submodule "vendor/OpenFontIcons"]
+	path = vendor/OpenFontIcons
+	url = https://github.com/traverseda/OpenFontIcons.git

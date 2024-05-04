@@ -40,6 +40,7 @@ OBJS=\
 	$(O)/App/events.o \
 	$(O)/App/Application.o \
 	$(O)/App/mapinfo_dlg.o \
+	$(O)/App/gui_mapdraw_glsl.o \
 
 .PHONY: all makedirs targets
 

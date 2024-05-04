@@ -1,6 +1,8 @@
 #include "editor.h"
-
 #include <glm/glm.hpp>
+#include "nlohmann/json.hpp"
+
+using json = nlohmann::json;
 
 mapData_t *mapData;
 std::vector<mapData_t> g_MapCache;
@@ -323,6 +325,8 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
                 xyz = tmpData->checkpoints[tmpData->numCheckpoints].xyz;
             } else if ( type == CHUNK_SPAWN ) {
                 xyz = tmpData->spawns[tmpData->numSpawns].xyz;
+            } else if ( type == CHUNK_LIGHT ) {
+                xyz = tmpData->lights[ tmpData->numLights ].origin;
             } else if ( type == CHUNK_TILE ) {
                 xyz = tmpData->tiles[tmpData->numTiles].pos;
             }
@@ -373,7 +377,7 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
                 return false;
             }
 
-            if ( !Parse1DMatrix( text, 3, tmpData->lights[tmpData->numLights].color ) ) {
+            if ( !Parse1DMatrix( text, 4, tmpData->lights[tmpData->numLights].color ) ) {
                 COM_ParseError( "failed to parse light color" );
                 return false;
             }
@@ -387,34 +391,44 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
                 COM_ParseError( "missing parameter for light type" );
                 return false;
             }
-            tmpData->lights[tmpData->numLights].type = (lighttype_t)atoi( tok );
+            tmpData->lights[tmpData->numLights].type = atoi( tok );
         }
         //
         // range <range>
         //
         else if ( !N_stricmp( tok, "range" ) ) {
-            tok = COM_ParseExt(text, qfalse);
+            tok = COM_ParseExt( text, qfalse );
             if (!tok[0]) {
-                COM_ParseError("missing parameter for light range");
+                COM_ParseError( "missing parameter for light range" );
                 return false;
             }
             tmpData->lights[tmpData->numLights].range = atof( tok );
         }
         //
-        // origin <x y elevation>
+        // bindCheckpoint <index>
         //
-        else if ( !N_stricmp( tok, "origin" ) ) {
+        else if ( !N_stricmp( tok, "bindCheckpoint" ) ) {
+            if ( type != CHUNK_SPAWN ) {
+                COM_ParseError( "found parameter \"bindCheckpoint\" in a chunk that isn't a spawn" );
+                return false;
+            }
+            tok = COM_ParseExt( text, qfalse );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for spawn checkpoint binding" );
+                return false;
+            }
+            tmpData->spawns[ tmpData->numSpawns ].checkpoint = atol( tok );
+        }
+        //
+        // lightType <type>
+        //
+        else if ( !N_stricmp( tok, "lightType" ) ) {
             if ( type != CHUNK_LIGHT ) {
-                COM_ParseError( "found parameter \"origin\" in chunk that isn't a light" );
+                COM_ParseError( "found parameter \"lightType\" in chunk that isn't a light" );
                 return false;
             }
 
-            uvec3_t origin;
-            if ( !Parse1DMatrix( text, 3, (float *)origin ) ) {
-                COM_ParseError( "failed to parse light origin" );
-                return false;
-            }
-            VectorCopy( tmpData->lights[tmpData->numLights].origin, origin );
+            tmpData->lights[ tmpData->numLights ].type = atoi( tok );
         }
         else {
             COM_ParseWarning( "unrecognized token '%s'", tok );
@@ -609,13 +623,17 @@ static void Map_ArchiveLights( IDataStream *out )
         sprintf( buf,
             "\t{\n"
             "\t\tclassname \"map_light\"\n"
-            "\t\torigin ( %i %i %i )\n"
-            "\t\trange %.3f\n"
-            "\t\tbrightness %.3f\n"
+            "\t\tpos %i %i %i\n"
+            "\t\trange %f\n"
+            "\t\tbrightness %f\n"
+            "\t\tcolor ( %f %f %f %f )\n"
             "\t\ttype %i\n"
             "\t}\n"
         , mapData->lights[i].origin[0], mapData->lights[i].origin[1], mapData->lights[i].origin[2],
-        mapData->lights[i].range, mapData->lights[i].brightness, mapData->lights[i].type );
+        mapData->lights[i].range, mapData->lights[i].brightness,
+        mapData->lights[i].color[0], mapData->lights[i].color[1],
+        mapData->lights[i].color[2], mapData->lights[i].color[3],
+        mapData->lights[i].type );
         
         out->Write( buf, strlen( buf ) );
     }
@@ -650,8 +668,10 @@ static void Map_ArchiveSpawns( IDataStream *out )
             "\t\tpos %i %i %i\n"
             "\t\tid %i\n"
             "\t\tentity %i\n"
+            "\t\tbindCheckpoint %u\n"
             "\t}\n"
-        , mapData->spawns[i].xyz[0], mapData->spawns[i].xyz[1], mapData->spawns[i].xyz[2], mapData->spawns[i].entityid, mapData->spawns[i].entitytype );
+        , mapData->spawns[i].xyz[0], mapData->spawns[i].xyz[1], mapData->spawns[i].xyz[2], mapData->spawns[i].entityid, mapData->spawns[i].entitytype,
+        mapData->spawns[i].checkpoint );
         
         out->Write( buf, strlen( buf ) );
     }

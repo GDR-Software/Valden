@@ -27,8 +27,8 @@ public:
 	bool m_bItemSelected;
 
 	Walnut::Image *m_pArrowIcon;
-	Walnut::Image *m_pDirectoryIcon;
 	Walnut::Image *m_pFileIcon;
+	Walnut::Image *m_pDirectoryIcon;
 };
 
 inline const std::string& ContentBrowserPanel::GetItemPath( void ) const {

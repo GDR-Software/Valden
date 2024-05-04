@@ -189,16 +189,19 @@ namespace Walnut {
 				}
 
 				{
+					ImVec2 size;
 					const ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
 					std::unique_lock<std::mutex> lock{ g_ImGuiLock };
+					const ImGuiViewport* viewport = ImGui::GetMainViewport();
+
+					size = { viewport->WorkSize.x / 2.0f, viewport->WorkSize.y };
 
 					// We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
 					// because it would be confusing to have two docking targets within each others.
 					ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
 
-					const ImGuiViewport* viewport = ImGui::GetMainViewport();
 					ImGui::SetNextWindowPos( { 0, 24 } );
-					ImGui::SetNextWindowSize( { viewport->WorkSize.x / 2, viewport->WorkSize.y } );
+					ImGui::SetNextWindowSize( size );
 					ImGui::SetNextWindowViewport( viewport->ID );
 					ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 					ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
@@ -220,9 +223,11 @@ namespace Walnut {
 					m_DockspaceWidth = ImGui::GetWindowSize().x;
 					ImGui::PopStyleVar();
 					
-					ImVec2 size = ImGui::GetWindowSize();
-					if ( size.x >= viewport->WorkSize.x * 0.75f ) {
+					size = ImGui::GetWindowSize();
+					if ( size.x > viewport->WorkSize.x * 0.75f ) {
 						size.x = viewport->WorkSize.x * 0.75f;
+					} else if ( size.x < viewport->WorkSize.x * 0.25f ) {
+						size.x = viewport->WorkSize.x * 0.25f;
 					}
 
 					ImGui::PopStyleVar( 2 );

@@ -169,6 +169,13 @@ extern std::string g_strBitmapsDir;
 extern std::string g_pidFile;
 extern std::mutex g_ImGuiLock;
 
+extern Walnut::Image *g_pEditIcon;
+extern Walnut::Image *g_pSaveFileAsIcon;
+extern Walnut::Image *g_pOpenFileIcon;
+extern Walnut::Image *g_pImportFileIcon;
+extern Walnut::Image *g_pExportFileIcon;
+extern Walnut::Image *g_pSaveFileIcon;
+
 inline bool MenuItemWithTooltip( const char *title, const char *shortcut, const char *tooltip, ... )
 {
     va_list argptr;

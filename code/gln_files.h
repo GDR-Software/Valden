@@ -189,14 +189,9 @@ typedef struct {
 #define SURFACEPARM_NODLIGHT        0x08000000 // dynamic lighting will not be applied to this tile
 #define SURFACEPARM_NOMARKS         0x00100000 // no gfx will be drawn on this tile
 #define SURFACEPARM_NOMISSILE       0x00200000 // missiles will not explode when hitting this tile, even if it is marked as solid
-#define SURFACEPARM_CHECKPOINT      0x00400000
-#define SURFACEPARM_SPAWN           0x00800000
 
-typedef enum {
-    light_point = 0,
-    light_spotlight,
-    light_area
-} lighttype_t;
+#define LIGHT_POINT       0
+#define LIGHT_DIRECTIONAL 1
 
 typedef struct {
     vec4_t color;
@@ -206,7 +201,7 @@ typedef struct {
     float linear;
     float quadratic;
     float constant;
-    lighttype_t type;
+    int type;
 } maplight_t;
 
 typedef struct {
@@ -256,6 +251,7 @@ typedef struct {
     uvec3_t xyz;
     uint32_t entitytype;
     uint32_t entityid;
+    uint32_t checkpoint;
 } mapspawn_t;
 
 typedef struct {

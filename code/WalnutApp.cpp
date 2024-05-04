@@ -19,9 +19,6 @@ CMapInfoDlg *g_pMapInfoDlg;
 CPopupDlg *g_pConfirmModifiedDlg;
 CPrefsDlg *g_pPrefsDlg;
 
-static Walnut::Image *s_pOpenFileIcon;
-static Walnut::Image *s_pSaveFileIcon;
-
 bool g_ApplicationRunning;
 
 static void LoadRecentFiles( void )
@@ -44,6 +41,10 @@ static void LoadRecentFiles( void )
 			break;
 		}
 	}
+}
+
+static Walnut::Image *LoadIcon( const char *name ) {
+	return new Walnut::Image( va( "%sbitmaps/%s.png", g_pEditor->m_CurrentPath.c_str(), name ) );
 }
 
 static void InitDialogs( void )
@@ -477,6 +478,7 @@ static void ViewMenu( void )
 	}
     if ( ImGui::BeginMenu( "Filter" ) ) {
         ImGui::Checkbox( "Show Checkpoints", &g_pEditor->m_bFilterShowCheckpoints );
+		ImGui::Checkbox( "Show Spawns", &g_pEditor->m_bFilterShowSpawns );
         ImGui::EndMenu();
     }
 	ImGui::Checkbox( "Console Window", &s_ConsoleOpen );

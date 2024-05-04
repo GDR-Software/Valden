@@ -89,7 +89,7 @@ private:
     char m_szEditBotName[MAX_NPATH];
     int32_t m_nEditBotId;
 
-     char m_szEditWeaponName[MAX_NPATH];
+    char m_szEditWeaponName[MAX_NPATH];
     int32_t m_nEditWeaponId;
 
     char m_szAddItemName[MAX_NPATH];

@@ -18,6 +18,8 @@
 #include <bzlib.h>
 #include <zlib.h>
 
+#ifndef BFF_TOOL
+
 bool g_UnsafeExit = false;
 char **myargv;
 int myargc;
@@ -112,6 +114,8 @@ static void do_backtrace( void )
 }
 #endif
 
+#endif
+
 #define MAX_VA_BUFFER 8192
 
 const char *va( const char *fmt, ... )
@@ -186,6 +190,8 @@ void GLN_ShutdownGL( void )
     SDL_Quit();
 }
 */
+
+#ifndef BFF_TOOL
 
 char *CopyString( const char *str )
 {
@@ -1092,6 +1098,8 @@ void WriteFile( const char *filename, const void *buffer, uint64_t length )
     fclose( fp );
 }
 
+#endif
+
 void *GetMemory( uint64_t size )
 {
     void *buf;
@@ -1140,6 +1148,7 @@ void FreeMemory( void *buf )
     }
 }
 
+#ifndef BFF_TOOL
 
 char *N_stradd(char *dst, const char *src)
 {
@@ -1213,9 +1222,13 @@ uint64_t Com_GenerateHashValue( const char *fname, const uint64_t size )
 // =================================================================================
 // logging
 
+#endif
+
 #define BUFFER_SIZE 4096
 
+#ifndef BFF_TOOL
 static int s_hLogFile;
+#endif
 
 extern "C" void Sys_FPrintf_VA( int level, const char *text, va_list args )
 {
@@ -1226,6 +1239,7 @@ extern "C" void Sys_FPrintf_VA( int level, const char *text, va_list args )
 	buf[BUFFER_SIZE - 1] = 0;
 	const unsigned int length = strlen( buf );
 
+#ifndef BFF_TOOL
 	if ( s_hLogFile ) {
 #ifdef _WIN32
 		_write( s_hLogFile, buf, length );
@@ -1238,6 +1252,7 @@ extern "C" void Sys_FPrintf_VA( int level, const char *text, va_list args )
 	if ( level != SYS_NOCON ) {
 		CMapRenderer::Print( "%s", buf );
 	}
+#endif
 
 	fwrite( buf, 1, length, stdout );
 }
@@ -1264,6 +1279,7 @@ extern "C" void Log_FPrintf( int level, const char *text, ... ){
 	va_end( args );
 }
 
+#ifndef BFF_TOOL
 
 void Error( const char *fmt, ... )
 {
@@ -2333,3 +2349,5 @@ void *Hunk_TempAlloc( int size )
 	return buf;
 }
 
+
+#endif

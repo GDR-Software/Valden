@@ -3,6 +3,7 @@
 
 #pragma once
 
+#ifdef VALDEN
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -17,7 +18,6 @@
 #include "imgui_internal.h"
 #include "nlohmann/json.hpp"
 #include "idatastream.h"
-#include "gln_files.h"
 
 #if defined(__GNUC__) || defined(__MINGW32__) || defined(__MINGW64__)
 	#define FORCEINLINE inline __attribute__((always_inline))
@@ -33,15 +33,6 @@ using json = nlohmann::json;
 
 #define WINDOW_TITLE "SIR Editor"
 #define PROJECT_FILE_NAME "proj"
-#define MAX_NPATH 64
-
-#ifdef _WIN32
-    #define PATH_SEP '\\'
-	#define DECL __cdecl
-#else
-    #define PATH_SEP '/'
-	#define DECL
-#endif
 
 void Sys_DebugAssertion( const char *expr, const char *file, unsigned line, const char *func );
 #define Assert(x) if ( !( x ) ) { Sys_DebugAssertion( #x, __FILE__, __LINE__, __func__ ); }
@@ -52,7 +43,17 @@ FORCEINLINE void Swap( T& a, T& b ) {
 	a = b;
 	b = c;
 }
+#endif
 
+#include "gln_files.h"
+#define MAX_NPATH 64
+#ifdef _WIN32
+    #define PATH_SEP '\\'
+	#define DECL __cdecl
+#else
+    #define PATH_SEP '/'
+	#define DECL
+#endif
 #include "gln_types.h"
 
 #define HEADER_MAGIC 0x5f3759df

@@ -4,129 +4,13 @@
 #include "stb_image.h"
 #include <thread>
 #include <mutex>
+#include <limits.h>
 #include "ImGuizmo/ImGuizmo.h"
 
 std::shared_ptr<CMapRenderer> g_pMapDrawer;
 
-static const char *mapdraw_vert_shader =
-"#version 450 core\n"
-"\n"
-"layout( location = 0 ) in vec4 a_Color;\n"
-"layout( location = 1 ) in vec3 a_Position;\n"
-"layout( location = 2 ) in vec3 a_WorldPos;\n"
-"layout( location = 3 ) in vec2 a_TexCoords;\n"
-"\n"
-"out vec3 v_Position;\n"
-"out vec3 v_WorldPos;\n"
-"out vec2 v_TexCoords;\n"
-"out vec4 v_Color;\n"
-"\n"
-"uniform mat4 u_ModelViewProjection;\n"
-"\n"
-"void main() {\n"
-"   v_Position = a_Position;\n"
-"   v_WorldPos = a_WorldPos;\n"
-"   v_TexCoords = a_TexCoords;\n"
-"   v_Color = a_Color;\n"
-"   gl_Position = vec4( u_ModelViewProjection * vec4( a_Position, 1.0 ) );\n"
-"}\n";
-
-static const char *mapdraw_frag_shader =
-"#version 450 core\n"
-"\n"
-"layout( location = 0 ) out vec4 a_Color;\n"
-"\n"
-"in vec3 v_Position;\n"
-"in vec3 v_WorldPos;\n"
-"in vec2 v_TexCoords;\n"
-"in vec4 v_Color;\n"
-"\n"
-"uniform sampler2D u_DiffuseMap;\n"
-"uniform sampler2D u_SpecularMap;\n"
-"uniform sampler2D u_NormalMap;\n"
-"uniform sampler2D u_AmbientOcclusionMap;\n"
-"\n"
-"#define POINT_LIGHT 0\n"
-"#define SPOT_LIGHT 1\n"
-"#define AREA_LIGHT 2\n"
-"\n"
-"struct Light {\n"
-"   vec4 color;\n"
-"   uvec3 origin;\n"
-"   float brightness;\n"
-"   float range;\n"
-"   float linear;\n"
-"   float quadratic;\n"
-"   float constant;\n"
-"   int type;\n"
-"};\n"
-"#define MAX_LIGHTS 1024\n"
-"layout( std140, binding = 0 ) uniform LightData {\n"
-"   Light lights[MAX_LIGHTS];\n"
-"};\n"
-"uniform int u_NumLights;\n"
-"uniform vec3 u_AmbientLightColor;\n"
-"\n"
-"uniform bool u_FramebufferActive;\n"
-"\n"
-"uniform bool u_UseDiffuseMapping;\n"
-"uniform bool u_UseSpecularMapping;\n"
-"uniform bool u_UseNormalMapping;\n"
-"uniform bool u_UseAmbientOcclusionMapping;\n"
-"uniform bool u_TileSelected;\n"
-"uniform int u_TileSelectionX;\n"
-"uniform int u_TileSelectionY;\n"
-"\n"
-"uniform vec4 u_TexUsage;\n"
-"\n"
-"void CalcNormal() {\n"
-"   vec3 normal = texture( u_NormalMap, v_TexCoords ).rgb;\n"
-"   normal = normalize( normal * 2.0 - 1.0 );\n"
-"   a_Color.rgb *= normal * 0.5 + 0.5;\n"
-"}\n"
-"\n"
-"void CalcLighting() {\n"\
-"   a_Color = texture( u_DiffuseMap, v_TexCoords );\n"
-"   if ( u_UseNormalMapping ) {\n"
-"       CalcNormal();\n"
-"   }\n"
-"   if ( u_UseSpecularMapping ) {\n"
-"       a_Color.rgb += texture( u_SpecularMap, v_TexCoords ).rgb;\n"
-"   }\n"
-//"   if ( u_NumLights == 0 && u_UseDiffuseMapping ) {\n"
-//"       a_Color.rgb += texture( u_DiffuseMap, v_TexCoords ).rgb;\n"
-//"   }\n"
-"   for ( int i = 0; i < u_NumLights; i++ ) {\n"
-"\n"
-"       vec3 diffuse = a_Color.rgb;\n"
-"       float dist = distance( v_WorldPos, lights[i].origin );\n"
-"       float diff = 0.0;\n"
-"       if ( dist <= lights[i].range ) {\n"
-"           diff = 1.0 - abs( dist / lights[i].range );\n"
-"       }\n"
-"       diffuse = max( diff * ( diffuse + vec3( lights[i].color ) ), diffuse );\n"
-"       a_Color.rgb += diffuse;\n"
-"   }\n"
-"   a_Color.rgb += texture( u_DiffuseMap, v_TexCoords ).rgb;\n"
-"}\n"
-"\n"
-"void main() {\n"
-"   if ( u_FramebufferActive ) {\n"
-"       a_Color = texture( u_DiffuseMap, v_TexCoords );\n"
-"   }\n"
-"   else {\n"
-"       if ( !u_UseDiffuseMapping && !u_UseSpecularMapping && !u_UseNormalMapping && !u_UseAmbientOcclusionMapping ) {\n"
-"           a_Color = vec4( 1.0 );\n"
-"       }\n"
-"       else {\n"
-"           CalcLighting();\n"
-"       }\n"
-"       a_Color.rgb *= u_AmbientLightColor;\n"
-"   }\n"
-"   if ( u_TileSelected && u_TileSelectionX == v_WorldPos.x && u_TileSelectionY == v_WorldPos.y ) {\n"
-"       a_Color.rgb = v_Color.rgb;\n"
-"   }\n"
-"}\n";
+extern const char *fallbackShader_mapdraw_fp;
+extern const char *fallbackShader_mapdraw_vp;
 
 void CMapRenderer::OnUpdate( float timestep ) {
     if ( g_pEditor->m_InputFocus != EditorInputFocus::MapFocus ) {
@@ -233,6 +117,37 @@ static GLint GetUniform( const std::string& name )
     return location;
 }
 
+static inline bool IsTileCheckpoint( uint32_t y, uint32_t x )
+{
+    for ( const auto& it : mapData->checkpoints ) {
+        if ( it.xyz[0] == x && it.xyz[1] == y ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static inline bool IsTileSpawn( uint32_t y, uint32_t x )
+{
+    for ( const auto& it : mapData->spawns ) {
+        if ( it.xyz[0] == x && it.xyz[1] == y ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+struct GPULight {
+    vec4_t color;
+    uvec2_t origin;
+    float brightness;
+    float range;
+    float linear;
+    float quadratic;
+    float constant;
+    int type;
+};
+
 void CMapRenderer::DrawMap( void )
 {
     uint32_t y, x;
@@ -240,6 +155,7 @@ void CMapRenderer::DrawMap( void )
     float width;
     glm::vec2 pos;
     Vertex *vtx;
+    GPULight tempLight;
     const ImGuiViewport *view;
 
     if ( !mapData ) {
@@ -280,8 +196,26 @@ void CMapRenderer::DrawMap( void )
     glUniform1i( GetUniform( "u_UseAmbientOcclusionMapping" ), mapData->textures[Walnut::TB_SHADOWMAP] ? 1 : 0 );
 
     glUniform1i( GetUniform( "u_NumLights" ), mapData->numLights );
+//    for ( i = 0; i < mapData->numLights; i++ ) {
+//        glUniform3f( GetUniform( va( "u_LightData.lights[%i].origin", i ) ),
+//            mapData->lights[i].origin[0], mapData->lights[i].origin[1], mapData->lights[i].origin[2] );
+//        glUniform1f( GetUniform( va( "u_LightData.lights[%i].range", i ) ), mapData->lights[i].range );
+//        glUniform4fv( GetUniform( va( "u_LightData.lights[%i].color", i ) ), 4, mapData->lights[i].color );
+//    }
     glBindBuffer( GL_UNIFORM_BUFFER, m_LightBuffer );
-    glBufferSubData( GL_UNIFORM_BUFFER, 0, sizeof( maplight_t ) * mapData->numLights, mapData->lights );
+    for ( i = 0; i < mapData->numLights; i++ ) {
+        memcpy( tempLight.color, mapData->lights[i].color, sizeof( vec4_t ) );
+        tempLight.origin[0] = mapData->lights[i].origin[0];
+        tempLight.origin[1] = mapData->lights[i].origin[1];
+        tempLight.brightness = mapData->lights[i].brightness;
+        tempLight.constant = mapData->lights[i].constant;
+        tempLight.linear = mapData->lights[i].linear;
+        tempLight.type = mapData->lights[i].type;
+        tempLight.quadratic = mapData->lights[i].quadratic;
+        tempLight.range = mapData->lights[i].range;
+
+        glBufferSubData( GL_UNIFORM_BUFFER, sizeof( GPULight ) * i, sizeof( GPULight ), &tempLight );
+    }
     glBindBuffer( GL_UNIFORM_BUFFER, 0 );
 
     glActiveTexture( GL_TEXTURE0 );
@@ -303,6 +237,9 @@ void CMapRenderer::DrawMap( void )
 
     glUniform3fv( GetUniform( "u_AmbientLightColor" ), 1, mapData->ambientColor );
 
+    glUniform1i( GetUniform( "u_FilterCheckpoints" ), g_pEditor->m_bFilterShowCheckpoints );
+    glUniform1i( GetUniform( "u_FilterSpawns" ), g_pEditor->m_bFilterShowSpawns );
+
     glUniform1i( GetUniform( "u_TileSelected" ), m_bTileSelectOn );
     glUniform1i( GetUniform( "u_TileSelectionX" ), m_nTileSelectX );
     glUniform1i( GetUniform( "u_TileSelectionY" ), m_nTileSelectY );
@@ -322,9 +259,14 @@ void CMapRenderer::DrawMap( void )
                 vtx[i].worldPos[0] = x;
                 vtx[i].worldPos[1] = y;
                 vtx[i].worldPos[2] = 0.0f;
+                vtx[i].color = glm::vec4( 0.0f );
 
                 if ( m_bTileSelectOn && m_nTileSelectX == x && m_nTileSelectY == y ) {
                     vtx[i].color = { 0.0f, 1.0f, 0.0f, 1.0f };
+                } else if ( g_pEditor->m_bFilterShowCheckpoints && IsTileCheckpoint( y, x ) ) {
+                    vtx[i].color = { 1.0f, 0.0f, 0.0f, 0.04546f };
+                } else if ( g_pEditor->m_bFilterShowSpawns && IsTileSpawn( y, x ) ) {
+                    vtx[i].color = { 0.0f, 0.0f, 1.0f, 0.07274f };
                 }
             }
 
@@ -468,7 +410,7 @@ void CMapRenderer::OnAttach( void )
 
     glGenBuffers( 1, &m_LightBuffer );
     glBindBuffer( GL_UNIFORM_BUFFER, m_LightBuffer );
-    glBufferData( GL_UNIFORM_BUFFER, sizeof( mapData->lights ), NULL, GL_STATIC_DRAW );
+    glBufferData( GL_UNIFORM_BUFFER, sizeof( GPULight ) * MAX_MAP_LIGHTS, NULL, GL_STATIC_DRAW );
     glBindBuffer( GL_UNIFORM_BUFFER, 0 );
 
     glGenVertexArrays( 1, &m_VertexArray );
@@ -499,8 +441,8 @@ void CMapRenderer::OnAttach( void )
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
 
-    vertShader = GenShader( (const char **)&mapdraw_vert_shader, 1, GL_VERTEX_SHADER );
-    fragShader = GenShader( (const char **)&mapdraw_frag_shader, 1, GL_FRAGMENT_SHADER );
+    vertShader = GenShader( (const char **)&fallbackShader_mapdraw_vp, 1, GL_VERTEX_SHADER );
+    fragShader = GenShader( (const char **)&fallbackShader_mapdraw_fp, 1, GL_FRAGMENT_SHADER );
 
     CheckShader( vertShader, GL_VERTEX_SHADER );
     CheckShader( fragShader, GL_FRAGMENT_SHADER );
@@ -514,9 +456,11 @@ void CMapRenderer::OnAttach( void )
 
     glUseProgram( m_Shader );
 
-    glBindBuffer( GL_UNIFORM_BUFFER, m_LightBuffer );
     m_LightUniform = glGetUniformBlockIndex( m_Shader, "LightData" );
     glUniformBlockBinding( m_Shader, m_LightUniform, 0 );
+
+    glBindBuffer( GL_UNIFORM_BUFFER, m_LightBuffer );
+    glBindBufferRange( GL_UNIFORM_BUFFER, 0, m_LightBuffer, 0, sizeof( GPULight ) * MAX_MAP_LIGHTS );
     glBindBufferBase( GL_UNIFORM_BUFFER, 0, m_LightBuffer );
     glBindBuffer( GL_UNIFORM_BUFFER, 0 );
 
@@ -525,6 +469,7 @@ void CMapRenderer::OnAttach( void )
     
     glUseProgram( 0 );
 
+/*
     glGenFramebuffers( 1, &m_FrameBuffer );
     glBindFramebuffer( GL_FRAMEBUFFER, m_FrameBuffer );
 
@@ -543,6 +488,7 @@ void CMapRenderer::OnAttach( void )
     CheckFramebuffer();
 
     glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+    */
 }
 
 void CMapRenderer::OnDetach( void )
@@ -566,6 +512,13 @@ void CMapRenderer::Print( const char *fmt, ... )
     va_start( argptr, fmt );
     length = vsnprintf( msg, sizeof(msg), fmt, argptr );
     va_end( argptr );
+
+    if ( CMapRenderer::g_CommandConsoleString.size() >= UINT_MAX ) {
+        CMapRenderer::g_CommandConsoleString.clear();
+        CMapRenderer::g_CommandConsoleString.reserve( UINT_MAX );
+    } else if ( !CMapRenderer::g_CommandConsoleString.size() ) {
+        CMapRenderer::g_CommandConsoleString.reserve( UINT_MAX );
+    }
 
     CMapRenderer::g_CommandConsoleString.insert( CMapRenderer::g_CommandConsoleString.end(), msg, msg + length );
 }

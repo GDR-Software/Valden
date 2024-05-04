@@ -1,0 +1,3 @@
+#define ICON_FILE 0xe061
+#define ICON_FOLDER 0xe067
+#define ICON_FOLDER_PLUS 0xe066
