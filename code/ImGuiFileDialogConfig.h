@@ -12,10 +12,8 @@
 // this options need c++17
 // #define USE_STD_FILESYSTEM
 
-#ifndef MAX_PATH
+#ifndef MAX_OSPATH
     #define MAX_OSPATH 1024
-#else
-    #define MAX_OSPATH MAX_PATH
 #endif
 
 #define MAX_FILE_DIALOG_NAME_BUFFER MAX_OSPATH

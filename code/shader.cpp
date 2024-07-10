@@ -1118,7 +1118,7 @@ default shader if the real one can't be found.
 */
 CShader *R_FindShaderByName( const char *name )
 {
-	char		strippedName[MAX_GDR_PATH];
+	char		strippedName[MAX_NPATH];
 	uint64_t	hash;
 	CShader	    *sh;
 
@@ -1176,7 +1176,7 @@ most world construction surfaces.
 ===============
 */
 CShader *R_FindShader( const char *name ) {
-	char		strippedName[MAX_GDR_PATH];
+	char		strippedName[MAX_NPATH];
 	uint64_t	hash;
 	const char	*shaderText;
 	Image 		*image;

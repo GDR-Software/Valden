@@ -11,6 +11,7 @@ typedef struct {
     mapcheckpoint_t checkpoints[MAX_MAP_CHECKPOINTS];
     mapspawn_t spawns[MAX_MAP_SPAWNS];
     maplight_t lights[MAX_MAP_LIGHTS];
+    mapsecret_t secrets[MAX_MAP_SECRETS];
 
     tile2d_info_t tileset;
     spriteCoord_t *texcoords;
@@ -32,6 +33,7 @@ typedef struct {
     int numLights;
     int numCheckpoints;
     int numSpawns;
+    int numSecrets;
 } mapData_t;
 
 extern mapData_t *mapData;
@@ -40,7 +42,7 @@ extern std::vector<mapData_t> g_MapCache;
 void Map_Init( void );
 void Map_Save( void );
 
-void Map_LoadFile( const char *filename );
+void Map_LoadFile( const char *filename, bool fromCommandLine = false );
 
 void Map_Resize( void );
 
@@ -54,5 +56,7 @@ void Map_SaveSelected( const char *filename );
 
 void Map_Import( IDataStream *in, const char *type );
 void Map_Export( IDataStream *out, const char *type );
+
+void ProjectSaveEntityIds( void );
 
 #endif

@@ -184,6 +184,7 @@ void DrawFileDialogs( void )
 	FileDialogUIRender( "OpenMapFileDlg", []( const std::string& path ){ Map_LoadFile( path.c_str() ); } );
 	FileDialogUIRender( "AddMapToProjectDlg", []( const std::string& path ){ Map_LoadFile( path.c_str() ); } );
 	FileDialogUIRender( "AddShaderFileDlg", []( const std::string& path ){ g_pAssetManagerDlg->AddShaderFile( path ); } );
+	FileDialogUIRender( "CompileMapFileDlg", []( const std::string& path ){ g_pMapInfoDlg->CompileMap( path ); } );
 }
 
 void CEditorLayer::OnUIRender( void )
@@ -536,7 +537,9 @@ static void DrawEditor( void )
 
 	if ( ImGui::BeginMenu( "Build" ) ) {
 		if ( ImGui::MenuItem( "Compile Map" ) ) {
-			
+			g_pMapInfoDlg->CompileMap(
+				va( "%s%clevels%c%s.bmf", g_pProjectManager->GetAssetDirectory().c_str(), PATH_SEP, PATH_SEP, mapData->name )
+			);
 		}
 		ImGui::EndMenu();
 	}

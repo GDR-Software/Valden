@@ -24,11 +24,13 @@ public:
 
     virtual void Draw( void ) override;
 
+    void CompileMap( const std::string& fileName );
     void ProjectSettingsDlg( void );
     void SetCurrent( mapData_t *data );
     inline void SetModified( bool bMap, bool bTileset ) {
         m_bMapModified = bMap;
         m_bTilesetModified = bTileset;
+        m_bMapNameUpdated = !bMap;
     }
 
     bool m_bShow;
@@ -37,6 +39,7 @@ public:
     bool m_bHasCheckpointWindow;
     bool m_bHasLightWindow;
     bool m_bHasTileWindow;
+    bool m_bHasSecretWindow;
 
     bool m_bMapModified;
     bool m_bTilesetModified;
@@ -47,6 +50,7 @@ public:
     mapspawn_t *m_pSpawnEdit;
     mapcheckpoint_t *m_pCheckpointEdit;
     maplight_t *m_pLightEdit;
+    mapsecret_t *m_pSecretEdit;
 
     char m_szCurrentShader[MAX_NPATH];
 private:
@@ -108,12 +112,10 @@ private:
     std::vector<MapSelection>::iterator m_pCurrentMap;
     char m_szTempMapName[MAX_NPATH+2];
     
-    uint32_t m_nSelectedSpawnEntityType;
-    uint32_t m_nSelectedSpawnEntityId;
-
     void CreateLight( void );
     void CreateCheckpoint( void );
     void CreateSpawn( void );
+    void CreateSecret( void );
 };
 
 #endif

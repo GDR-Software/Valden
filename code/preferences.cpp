@@ -75,57 +75,57 @@ void CPrefsDlg::Load( void )
         Error( "[CPrefsDlg::Load] Failed to load preferences file, nlohmann::json error ->\n    id: %i\n    what: %s", e.id, e.what() );
     }
 
-    m_bAutoSave = data["autosave"];
-    m_bLoadLastMap = data["loadlastmap"];
-    m_bLoadLastProject = data["loadlastproject"];
-    m_bForceLog = data["forcelog"];
-    m_bLogToFile = data["logfile"];
+    m_bAutoSave = data["AutoSave"];
+    m_bLoadLastMap = data["LoadLastMap"];
+    m_bLoadLastProject = data["LoadLastProject"];
+    m_bForceLog = data["ForceLog"];
+    m_bLogToFile = data["LogFile"];
 
-    m_ProjectDataPath = data["projectdatapath"];
-    m_LastProject = data["lastproject"];
-    m_LastMap = data["lastmap"];
-    m_Engine = data["engine"];
-    if ( data.contains( "enginepath" ) ) {
-        m_PrefsDlgEngine = data["enginepath"];
+    m_ProjectDataPath = data["ProjectDataPath"];
+    m_LastProject = data["LastProject"];
+    m_LastMap = data["LastMap"];
+    m_Engine = data["Engine"];
+    if ( data.contains( "EnginePath" ) ) {
+        m_PrefsDlgEngine = data["EnginePath"];
     } else {
         m_PrefsDlgEngine = g_pEditor->m_CurrentPath;
     }
 
-    m_nCameraMoveSpeed = data["camera_move_speed"];
-    m_nCameraRotationSpeed = data["camera_rotation_speed"];
+    m_nCameraMoveSpeed = data["CameraMoveSpeed"];
+    m_nCameraRotationSpeed = data["CameraRotationSpeed"];
     
-    m_nAutoSaveTime = data["autosavetime"];
-    m_nFontScale = data["fontscale"];
+    m_nAutoSaveTime = data["AutoSaveTime"];
+    m_nFontScale = data["FontScale"];
 
-    if ( data.contains( "editorstyleShort" ) ) {
-        const std::string& editorStyle = data["editorstyleShort"];
+    if ( data.contains( "EditorStyleShort" ) ) {
+        const std::string& editorStyle = data["EditorStyleShort"];
 
-        if ( editorStyle == "dark" ) {
+        if ( editorStyle == "Dark" ) {
             ImGui::StyleColorsDark( &m_EditorStyle );
             m_bUseEditorStyleDark = true;
-        } else if ( editorStyle == "light" ) {
+        } else if ( editorStyle == "Light" ) {
             ImGui::StyleColorsLight( &m_EditorStyle );
             m_bUseEditorStyleLight = true;
         } else {
             Error( "[CPrefsDlg::Load] Failed to load editor style, invalid style type '%s'", editorStyle.c_str() );
         }
     } else {
-        const json& style = data.at( "editorstyle" );
+        const json& style = data.at( "EditorStyle" );
         ImGuiStyle *imStyle = &m_EditorStyle;
 
         m_bUseEditorStyleCustom = true;
 
         memset( imStyle, 0, sizeof(*imStyle) );
 
-        imStyle->Colors[ImGuiCol_Button] = json_to_vec4( style, "button" );
-        imStyle->Colors[ImGuiCol_ButtonActive] = json_to_vec4( style, "buttonActive" );
-        imStyle->Colors[ImGuiCol_ButtonHovered] = json_to_vec4( style, "buttonHovered" );
+        imStyle->Colors[ImGuiCol_Button] = json_to_vec4( style, "Button" );
+        imStyle->Colors[ImGuiCol_ButtonActive] = json_to_vec4( style, "ButtonActive" );
+        imStyle->Colors[ImGuiCol_ButtonHovered] = json_to_vec4( style, "ButtonHovered" );
 
-        imStyle->Colors[ImGuiCol_FrameBg] = json_to_vec4( style, "frameBg" );
-        imStyle->Colors[ImGuiCol_FrameBgActive] = json_to_vec4( style, "frameBgActive" );
-        imStyle->Colors[ImGuiCol_FrameBgHovered] = json_to_vec4( style, "frameBgHovered" );
-        imStyle->Colors[ImGuiCol_PopupBg] = json_to_vec4( style, "popupBg" );
-        imStyle->Colors[ImGuiCol_MenuBarBg] = json_to_vec4( style, "menuBarBg" );
+        imStyle->Colors[ImGuiCol_FrameBg] = json_to_vec4( style, "FrameBg" );
+        imStyle->Colors[ImGuiCol_FrameBgActive] = json_to_vec4( style, "FrameBgActive" );
+        imStyle->Colors[ImGuiCol_FrameBgHovered] = json_to_vec4( style, "FrameBgHovered" );
+        imStyle->Colors[ImGuiCol_PopupBg] = json_to_vec4( style, "PopupBg" );
+        imStyle->Colors[ImGuiCol_MenuBarBg] = json_to_vec4( style, "MenuBarBg" );
     }
 
     m_bActive = false;
@@ -154,19 +154,19 @@ void CPrefsDlg::Save( void ) const
     Log_Printf( "CPrefsDlg::Save: saving editor preferences file...\n" );
 
     if ( m_bUseEditorStyleDark ) {
-        data["editorstyleShort"] = "dark";
+        data["EditorStyleShort"] = "Dark";
     } else if ( m_bUseEditorStyleLight ) {
-        data["editorstyleShort"] = "light";
+        data["EditorStyleShort"] = "Light";
     } else {
-        data["editorstyle"]["button"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_Button] );
-        data["editorstyle"]["buttonActive"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_ButtonActive] );
-        data["editorstyle"]["buttonHovered"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_ButtonHovered] );
+        data["EditorStyle"]["Button"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_Button] );
+        data["EditorStyle"]["ButtonActive"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_ButtonActive] );
+        data["EditorStyle"]["ButtonHovered"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_ButtonHovered] );
 
-        data["editorstyle"]["frameBg"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_FrameBg] );
-        data["editorstyle"]["frameBgActive"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_FrameBgActive] );
-        data["editorstyle"]["frameBgHovered"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_FrameBgHovered] );
-        data["editorstyle"]["popupBg"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_PopupBg] );
-        data["editorstyle"]["menuBarBg"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_MenuBarBg] );
+        data["EditorStyle"]["FrameBg"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_FrameBg] );
+        data["EditorStyle"]["FrameBgActive"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_FrameBgActive] );
+        data["EditorStyle"]["FrameBgHovered"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_FrameBgHovered] );
+        data["EditorStyle"]["PopupBg"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_PopupBg] );
+        data["EditorStyle"]["MenuBarBg"] = vec4_to_json( m_EditorStyle.Colors[ImGuiCol_MenuBarBg] );
     }
 
     if ( !m_bLogToFile ) {
@@ -174,25 +174,26 @@ void CPrefsDlg::Save( void ) const
         ImGui::LogFinish();
     }
 
-    data["lastproject"] = g_pProjectManager->GetProject()->m_Name;
-    data["lastmap"] = mapData->name;
-    data["engine"] = m_Engine;
-    data["projectdatapath"] = m_ProjectDataPath;
-    data["enginepath"] = m_PrefsDlgEngine;
+    data["LastProject"] = g_pProjectManager->GetProject()->m_Name;
+    data["LastMap"] = mapData->name;
+    data["Engine"] = m_Engine;
+    data["ProjectDataPath"] = m_ProjectDataPath;
+    data["EnginePath"] = m_PrefsDlgEngine;
 
-    data["autosave"] = m_bAutoSave;
-    data["loadlastmap"] = m_bLoadLastMap;
-    data["loadlastproject"] = m_bLoadLastProject;
-    data["forcelog"] = m_bForceLog;
-    data["logfile"] = m_bLogToFile;
-    data["lastproject"] = m_LastProject;
-    data["lastmap"] = m_LastMap;
+    data["AutoSave"] = m_bAutoSave;
+    data["LoadLastMap"] = m_bLoadLastMap;
+    data["LoadLastProject"] = m_bLoadLastProject;
+    data["ForceLog"] = m_bForceLog;
+    data["LogFile"] = m_bLogToFile;
 
-    data["camera_move_speed"] = m_nCameraMoveSpeed;
-    data["camera_rotation_speed"] = m_nCameraRotationSpeed;
+    data["LastProject"] = m_LastProject;
+    data["LastMap"] = m_LastMap;
 
-    data["autosavetime"] = m_nAutoSaveTime;
-    data["fontscale"] = m_nFontScale;
+    data["CameraMoveSpeed"] = m_nCameraMoveSpeed;
+    data["CameraRotationSpeed"] = m_nCameraRotationSpeed;
+
+    data["AutoSavetime"] = m_nAutoSaveTime;
+    data["FontScale"] = m_nFontScale;
 
     std::ofstream file( va( "%spreferences.json", g_pEditor->m_CurrentPath.c_str() ), std::ios::out );
 

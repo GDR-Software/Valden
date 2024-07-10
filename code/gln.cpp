@@ -1,4 +1,12 @@
+#include <functional>
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
+#include <stdint.h>
+#include "../include/idatastream.h"
+#include <memory>
 #include "gln.h"
+#ifndef BFF_TOOL
 #include "editor.h"
 #include "gui.h"
 #include "events.h"
@@ -17,6 +25,7 @@
 
 #include <bzlib.h>
 #include <zlib.h>
+#endif
 
 #ifndef BFF_TOOL
 

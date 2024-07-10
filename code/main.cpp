@@ -319,7 +319,7 @@ int valdenMain( int argc, char **argv )
 
 	// if the first parameter is a .map, load that
 	if ( argc > 1 && IsMap( argv[1] ) ) {
-		Map_LoadFile( argv[1] );
+		Map_LoadFile( argv[1], true );
 	} else if ( g_pPrefsDlg->m_bLoadLastMap && g_pPrefsDlg->m_LastMap.length() > 0 ) {
 		Map_LoadFile( g_pPrefsDlg->m_LastMap.c_str() );
 	} else {

@@ -18,6 +18,7 @@ typedef enum {
     CHUNK_TILE,
     CHUNK_TILESET,
     CHUNK_TEXCOORDS,
+    CHUNK_SECRET,
     
     CHUNK_INVALID
 } chunkType_t;
@@ -53,6 +54,9 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
             case CHUNK_TEXCOORDS:
                 tmpData->tileset.numTiles++;
                 break;
+            case CHUNK_SECRET:
+                tmpData->numSecrets++;
+                break;
             };
             break;
         }
@@ -79,6 +83,9 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
             }
             else if ( !N_stricmp( tok, "map_tile" ) ) {
                 type = CHUNK_TILE;
+            }
+            else if ( !N_stricmp( tok, "map_secret" ) ) {
+                type = CHUNK_SECRET;
             }
             else if ( !N_stricmp( tok, "tilesetdata" ) ) {
                 type = CHUNK_TILESET;
@@ -298,8 +305,8 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
         // sides <sides...>
         //
         else if ( !N_stricmp( tok, "sides" ) ) {
-            int sides[NUMDIRS];
-            if ( !Parse1DMatrix( text, NUMDIRS, (float *)sides ) ) {
+            float sides[NUMDIRS];
+            if ( !Parse1DMatrix( text, NUMDIRS, sides ) ) {
                 COM_ParseError( "failed to parse sides for map tile" );
                 return false;
             }
@@ -314,9 +321,24 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
             tmpData->tiles[tmpData->numTiles].sides[DIR_NULL]        = sides[DIR_NULL];
         }
         //
+        // trigger <checkpoint>
+        //
+        else if ( !N_stricmp( tok, "trigger" ) ) {
+            if ( type != CHUNK_SECRET ) {
+                COM_ParseError( "found parameter \"trigger\" in a chunk that isn't a secret" );
+                return false;
+            }
+            tok = COM_ParseExt( text, qfalse );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for secret trigger" );
+                return false;
+            }
+            tmpData->secrets[ tmpData->numSecrets ].trigger = atoi( tok );
+        }
+        //
         // pos <x y elevation>
         //
-        else if ( !N_stricmp(tok, "pos" ) ) {
+        else if ( !N_stricmp( tok, "pos" ) ) {
             uint32_t *xyz;
             if ( type == CHUNK_INVALID ) {
                 COM_ParseError( "chunk type not specified before parameters" );
@@ -353,11 +375,27 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
             xyz[2] = (uint32_t)atoi( tok );
         }
         //
+        // angle <value>
+        //
+        else if ( !N_stricmp( tok, "angle" ) ) {
+            if ( type != CHUNK_LIGHT ) {
+                COM_ParseError( "found parameter \"angle\" in a chunk that isn't a light" );
+                return false;
+            }
+
+            tok = COM_ParseExt( text, qfalse );
+            if (!tok[0]) {
+                COM_ParseError( "missing parameter for angle" );
+                return false;
+            }
+            tmpData->lights[tmpData->numLights].angle = atof( tok );
+        }
+        //
         // brightness <value>
         //
         else if ( !N_stricmp( tok, "brightness" ) ) {
             if ( type != CHUNK_LIGHT ) {
-                COM_ParseError( "found parameter \"brightness\" in chunk that isn't a light" );
+                COM_ParseError( "found parameter \"brightness\" in a chunk that isn't a light" );
                 return false;
             }
 
@@ -373,7 +411,7 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
         //
         else if ( !N_stricmp( tok, "color" ) ) {
             if ( type != CHUNK_LIGHT ) {
-                COM_ParseError( "found parameter \"color\" in chunk that isn't a light" );
+                COM_ParseError( "found parameter \"color\" in a chunk that isn't a light" );
                 return false;
             }
 
@@ -386,6 +424,10 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
         // type <light_type>
         //
         else if ( !N_stricmp( tok, "type" ) ) {
+            if ( type != CHUNK_LIGHT ) {
+                COM_ParseError( "found parameter \"type\" in a chunk that isn't a light" );
+                return false;
+            }
             tok = COM_ParseExt( text, qfalse );
             if ( !tok[0] ) {
                 COM_ParseError( "missing parameter for light type" );
@@ -394,9 +436,73 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
             tmpData->lights[tmpData->numLights].type = atoi( tok );
         }
         //
+        // brightness <brightness>
+        //
+        else if ( !N_stricmp( tok, "brightness" ) ) {
+            if ( type != CHUNK_LIGHT ) {
+                COM_ParseError( "found parameter \"brightness\" in a chunk that isn't a light" );
+                return false;
+            }
+            tok = COM_ParseExt( text, qfalse );
+            if (!tok[0]) {
+                COM_ParseError( "missing parameter for light brightness" );
+                return false;
+            }
+            tmpData->lights[tmpData->numLights].brightness = atof( tok );
+        }
+        //
+        // lightLinear <amount>
+        //
+        else if ( !N_stricmp( tok, "lightLinear" ) ) {
+            if ( type != CHUNK_LIGHT ) {
+                COM_ParseError( "found parameter \"lightLinear\" in a chunk that isn't a light" );
+                return false;
+            }
+            tok = COM_ParseExt( text, false );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for light linear" );
+                return false;
+            }
+            tmpData->lights[ tmpData->numLights ].linear = atof( tok );
+        }
+        //
+        // lightQuadratic <amount>
+        //
+        else if ( !N_stricmp( tok, "lightQuadratic" ) ) {
+            if ( type != CHUNK_LIGHT ) {
+                COM_ParseError( "found parameter \"lightQuadratic\" in a chunk that isn't a light" );
+                return false;
+            }
+            tok = COM_ParseExt( text, false );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for light quadratic" );
+                return false;
+            }
+            tmpData->lights[ tmpData->numLights ].quadratic = atof( tok );
+        }
+        //
+        // lightConstant <amount>
+        //
+        else if ( !N_stricmp( tok, "lightConstant" ) ) {
+            if ( type != CHUNK_LIGHT ) {
+                COM_ParseError( "found parameter \"lightConstant\" in a chunk that isn't a light" );
+                return false;
+            }
+            tok = COM_ParseExt( text, false );
+            if ( !tok[0] ) {
+                COM_ParseError( "missing parameter for light constant" );
+                return false;
+            }
+            tmpData->lights[ tmpData->numLights ].constant = atof( tok );
+        }
+        //
         // range <range>
         //
         else if ( !N_stricmp( tok, "range" ) ) {
+            if ( type != CHUNK_LIGHT ) {
+                COM_ParseError( "found parameter \"range\" in a chunk that isn't a light" );
+                return false;
+            }
             tok = COM_ParseExt( text, qfalse );
             if (!tok[0]) {
                 COM_ParseError( "missing parameter for light range" );
@@ -417,18 +523,7 @@ static bool ParseChunk( const char **text, mapData_t *tmpData )
                 COM_ParseError( "missing parameter for spawn checkpoint binding" );
                 return false;
             }
-            tmpData->spawns[ tmpData->numSpawns ].checkpoint = atol( tok );
-        }
-        //
-        // lightType <type>
-        //
-        else if ( !N_stricmp( tok, "lightType" ) ) {
-            if ( type != CHUNK_LIGHT ) {
-                COM_ParseError( "found parameter \"lightType\" in chunk that isn't a light" );
-                return false;
-            }
-
-            tmpData->lights[ tmpData->numLights ].type = atoi( tok );
+            tmpData->spawns[ tmpData->numSpawns ].checkpoint = (uint32_t)atol( tok );
         }
         else {
             COM_ParseWarning( "unrecognized token '%s'", tok );
@@ -529,7 +624,7 @@ static bool ParseMap(const char **text, const char *path, mapData_t *tmpData)
 void Map_Init( void ) {
 }
 
-void Map_LoadFile( const char *filename )
+void Map_LoadFile( const char *filename, bool fromCommandLine )
 {
     union {
         void *v;
@@ -537,7 +632,7 @@ void Map_LoadFile( const char *filename )
     } f;
     const char *ptr;
     const char **text, *tok;
-    std::string path;
+    char path[MAX_OSPATH];
     mapData_t tmpData;
 
     for ( const auto& it : g_MapCache ) {
@@ -547,14 +642,13 @@ void Map_LoadFile( const char *filename )
         }
     }
 
-    path = filename;
-    if ( path.find( PATH_SEP ) == std::string::npos ) {
-        path = g_pProjectManager->GetProject()->m_FilePath + g_pProjectManager->GetProject()->m_AssetPath + va( "%cmaps%c%s", PATH_SEP, PATH_SEP, filename );
-    }
-    LoadFile( path.c_str(), &f.v );
+    snprintf( path, sizeof( path ) - 1, "%s%s%cmaps%c%s"
+        , g_pProjectManager->GetProject()->m_FilePath.c_str(),
+        g_pProjectManager->GetProject()->m_AssetPath.c_str(), PATH_SEP, PATH_SEP, filename );
+    LoadFile( path, &f.v );
 
     if ( !f.v ) {
-        Sys_MessageBox( "Map Load Failed", va( "Failed to open map file '%s'", path.c_str() ), MB_OK | MB_ICONWARNING );
+        Sys_MessageBox( "Map Load Failed", va( "Failed to open map file '%s'", path ), MB_OK | MB_ICONWARNING );
         return;
     }
 
@@ -586,14 +680,16 @@ void Map_LoadFile( const char *filename )
         mapData->height = tmpData.height;
         VectorCopy( mapData->ambientColor, tmpData.ambientColor );
         mapData->ambientIntensity = tmpData.ambientIntensity;
+        mapData->tiles = s_pTilePOD;
+        mapData->texcoords = s_pSpritePOD;
         memcpy( mapData->checkpoints, tmpData.checkpoints, sizeof(*mapData->checkpoints) * tmpData.numCheckpoints );
         memcpy( mapData->spawns, tmpData.spawns, sizeof(*mapData->spawns) * tmpData.numSpawns );
         memcpy( mapData->lights, tmpData.lights, sizeof(*mapData->lights) * tmpData.numLights );
-        mapData->tiles = s_pTilePOD;
-        mapData->texcoords = s_pSpritePOD;
+        memcpy( mapData->secrets, tmpData.secrets, sizeof( *mapData->secrets ) * tmpData.numSecrets );
         mapData->numCheckpoints = tmpData.numCheckpoints;
         mapData->numSpawns = tmpData.numSpawns;
         mapData->numLights = tmpData.numLights;
+        mapData->numSecrets = tmpData.numSecrets;
         memcpy( &mapData->tileset, &tmpData.tileset, sizeof(mapData->tileset) );
 
         for ( uint32_t i = 0; i < Walnut::NUM_TEXTURE_BUNDLES; i++ ) {
@@ -602,7 +698,11 @@ void Map_LoadFile( const char *filename )
 
         Map_BuildTileset();
 
-        if ( g_pProjectManager->IsLoaded() ) {
+        if ( g_pProjectManager->IsLoaded()
+            &&  std::find( g_pProjectManager->GetProject()->m_MapList.begin(),
+                    g_pProjectManager->GetProject()->m_MapList.end(), mapData )
+                == g_pProjectManager->GetProject()->m_MapList.end() )
+        {
             g_pProjectManager->GetProject()->m_MapList.emplace_back( mapData );
         }
     } else {
@@ -626,11 +726,17 @@ static void Map_ArchiveLights( IDataStream *out )
             "\t\tpos %i %i %i\n"
             "\t\trange %f\n"
             "\t\tbrightness %f\n"
+            "\t\tangle %f\n"
+            "\t\tlightConstant %f\n"
+            "\t\tlightLinear %f\n"
+            "\t\tlightQuadratic %f\n"
             "\t\tcolor ( %f %f %f %f )\n"
             "\t\ttype %i\n"
             "\t}\n"
         , mapData->lights[i].origin[0], mapData->lights[i].origin[1], mapData->lights[i].origin[2],
         mapData->lights[i].range, mapData->lights[i].brightness,
+        mapData->lights[i].angle, mapData->lights[i].constant,
+        mapData->lights[i].linear, mapData->lights[i].quadratic,
         mapData->lights[i].color[0], mapData->lights[i].color[1],
         mapData->lights[i].color[2], mapData->lights[i].color[3],
         mapData->lights[i].type );
@@ -709,91 +815,73 @@ static void Map_ArchiveTiles( IDataStream *out )
     }
 }
 
-static void ArchiveEntityTypes( void )
+static void Map_ArchiveSecrets( IDataStream *out )
 {
-    FileStream out;
-    char buf[2048];
-    std::string outfile;
-    uint32_t i;
+    int i;
+    char buf[1024];
 
-    outfile = g_pProjectManager->GetProject()->m_FilePath + g_pProjectManager->GetProject()->m_AssetPath + va( "%cscripts%centitydata.json", PATH_SEP, PATH_SEP );
+    for ( i = 0; i < mapData->numSecrets; i++ ) {
+        snprintf( buf, sizeof( buf ) - 1,
+            "\t{\n"
+            "\t\tclassname \"map_secret\"\n"
+            "\t\ttrigger %u\n"
+            "\t}\n"
+        , mapData->secrets[i].trigger );
 
-    Log_Printf( "ArchiveEntityTypes: writing project entity types to '%s'...\n", outfile.c_str() );
+        out->Write( buf, strlen( buf ) );
+    }
+}
 
-    if ( !out.Open( outfile.c_str(), "w" ) ) {
-        Error( "ArchiveEntityTypes: failed to create json file '%s'", outfile.c_str() );
+void ProjectSaveEntityIds( void )
+{
+    std::ofstream out;
+    char outfile[MAX_OSPATH];
+    uint64_t i;
+    nlohmann::json entity;
+    nlohmann::json data;
+
+    snprintf( outfile, sizeof( outfile ), "%s%s%cscripts%centitydata.json", g_pProjectManager->GetProject()->m_FilePath.c_str(), g_pProjectManager->GetProject()->m_AssetPath.c_str(),
+        PATH_SEP, PATH_SEP );
+
+    Log_Printf( "ProjectSaveEntityIds: archiving entitydata file '%s'...\n", outfile );
+
+    out.open( outfile, std::ios::out );
+    if ( !out.is_open() ) {
+        Error( "ProjectSaveEntityIds: failed to create entitydata file '%s'", outfile );
     }
 
-    out.printf( "{\n" );
-
-    out.printf( "\t\"MobData\": [\n" );
-    const std::vector<entityInfo_t>& mobs = g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ];
-    for ( i = 0; i < mobs.size(); i++ ) {
-        sprintf( buf,
-            "\t\t{\n"
-            "\t\t\t\"Name\": \"%s\"\n"
-            "\t\t\t\"Id\": %u\n"
-            "\t\t}"
-        , mobs[i].m_Name.c_str(), mobs[i].m_Id );
-
-        out.Write( buf, strlen( buf ) );
-        if ( i != mobs.size() - 1 ) {
-            out.printf( "," );
-        }
-        out.printf( "\n" );
+    for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[ ET_MOB ] ) {
+        entity[ "Name" ] = it.m_Name;
+        entity[ "Id" ] = it.m_Id;
+        data[ "MobData" ].emplace_back( entity );
     }
-    out.printf( "\t]\n" );
-
-    out.printf( "\t\"ItemData\": [\n" );
-    const std::vector<entityInfo_t>& items = g_pProjectManager->GetProject()->m_EntityList[ ET_ITEM ];
-    for ( i = 0; i < items.size(); i++ ) {
-        sprintf( buf,
-            "\t\t{\n"
-            "\t\t\t\"Name\": \"%s\"\n"
-            "\t\t\t\"Id\": %u\n"
-            "\t\t}"
-        , items[i].m_Name.c_str(), items[i].m_Id );
-
-        out.Write( buf, strlen( buf ) );
-        if ( i != items.size() - 1 ) {
-            out.printf( "," );
-        }
-        out.printf( "\n" );
+    for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[ ET_ITEM ] ) {
+        entity[ "Name" ] = it.m_Name;
+        entity[ "Id" ] = it.m_Id;
+        data[ "ItemData" ].emplace_back( entity );
     }
-    out.printf( "\t]\n" );
-
-    out.printf( "\t\"WeaponData\": [\n" );
-    const std::vector<entityInfo_t>& weapons = g_pProjectManager->GetProject()->m_EntityList[ ET_WEAPON ];
-    for ( i = 0; i < mobs.size(); i++ ) {
-        sprintf( buf,
-            "\t\t{\n"
-            "\t\t\t\"Name\": \"%s\"\n"
-            "\t\t\t\"Id\": %u\n"
-            "\t\t}"
-        , mobs[i].m_Name.c_str(), mobs[i].m_Id );
-
-        out.Write( buf, strlen( buf ) );
-        if ( i != mobs.size() - 1 ) {
-            out.printf( "," );
-        }
-        out.printf( "\n" );
+    for ( const auto& it : g_pProjectManager->GetProject()->m_EntityList[ ET_WEAPON ] ) {
+        entity[ "Name" ] = it.m_Name;
+        entity[ "Id" ] = it.m_Id;
+        data[ "WeaponData" ].emplace_back( entity );
     }
-    out.printf( "\t]\n" );
 
-    out.printf( "}\n" );
+    out.width( 4 );
+    out << data;
 }
 
 void Map_Save( void )
 {
     FileStream out;
-    std::string outfile;
+    char outfile[MAX_OSPATH];
 
-    outfile = g_pProjectManager->GetProject()->m_FilePath + g_pProjectManager->GetProject()->m_AssetPath + va( "%cmaps%c%s", PATH_SEP, PATH_SEP, mapData->name );
+    snprintf( outfile, sizeof( outfile ), "%s%s%cmaps%c%s", g_pProjectManager->GetProject()->m_FilePath.c_str(), g_pProjectManager->GetProject()->m_AssetPath.c_str(),
+        PATH_SEP, PATH_SEP, mapData->name );
 
-    Log_Printf( "Map_Save: archiving map file '%s'...\n", outfile.c_str() );
+    Log_Printf( "Map_Save: archiving map file '%s'...\n", outfile );
 
-    if ( !out.Open( outfile.c_str(), "w" ) ) {
-        Error( "Map_Save: failed to create map file '%s'", outfile.c_str() );
+    if ( !out.Open( outfile, "w" ) ) {
+        Error( "Map_Save: failed to create map file '%s'", outfile );
     }
 
     {
@@ -837,6 +925,13 @@ void Map_Save( void )
         out.Write( buf, strlen( buf ) );
     }
 
+    for ( int y = 0; y < mapData->width; y++ ) {
+        for ( int x = 0; x < mapData->height; x++ ) {
+            mapData->tiles[ y * mapData->width + x ].pos[0] = x;
+            mapData->tiles[ y * mapData->width + x ].pos[1] = y;
+        }
+    }
+
     g_pEditor->m_nOldMapHeight = mapData->height;
     g_pEditor->m_nOldMapWidth = mapData->width;
 
@@ -844,12 +939,17 @@ void Map_Save( void )
     Map_ArchiveSpawns( &out );
     Map_ArchiveTiles( &out );
     Map_ArchiveLights( &out );
+    Map_ArchiveSecrets( &out );
 
     out.Write( "}\n", 2 );
 
     out.Close();
 
-    g_pProjectManager->GetProject()->m_MapList.emplace_back( mapData );
+    if ( std::find( g_pProjectManager->GetProject()->m_MapList.begin(),
+        g_pProjectManager->GetProject()->m_MapList.end(), mapData ) == g_pProjectManager->GetProject()->m_MapList.end() )
+    {
+        g_pProjectManager->GetProject()->m_MapList.emplace_back( mapData );
+    }
 
     // update the title to signal saved
     Sys_SetWindowTitle( mapData->name );
@@ -872,10 +972,10 @@ void Map_New( void )
     mapData->height = 64;
 
     if ( !s_pTilePOD ) {
-        s_pTilePOD = (maptile_t *)GetMemory( sizeof(maptile_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
+        s_pTilePOD = (maptile_t *)GetMemory( sizeof( maptile_t ) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
     }
     if ( !s_pSpritePOD ) {
-        s_pSpritePOD = (spriteCoord_t *)GetMemory( sizeof(spriteCoord_t) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
+        s_pSpritePOD = (spriteCoord_t *)GetMemory( sizeof( spriteCoord_t ) * MAX_MAP_WIDTH * MAX_MAP_HEIGHT );
     }
     mapData->tiles = s_pTilePOD;
     mapData->texcoords = s_pSpritePOD;

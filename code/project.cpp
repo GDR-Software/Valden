@@ -92,27 +92,43 @@ void CProjectManager::AddToCache( const std::string& path, bool loadJSON, bool b
         proj->m_AssetDirectory = va( "%s%c%s", path.c_str(), PATH_SEP, data["assetdirectory"].get<std::string>().c_str() );
         proj->m_AssetPath = data["assetdirectory"];
 
-        if ( data.contains( "data_lists" ) ) {
-            const std::vector<json>& itemlist = data["data_lists"]["itemlist"];
-            const std::vector<json>& moblist = data["data_lists"]["moblist"];
-            const std::vector<json>& botlist = data["data_lists"]["botlist"];
+        if ( FileExists( va( "%s%cscripts%centitydata.json", proj->m_AssetDirectory.c_str(), PATH_SEP, PATH_SEP ) ) ) {
+            file.open( va( "%s%cscripts%centitydata.json", proj->m_AssetDirectory.c_str(), PATH_SEP, PATH_SEP ), std::ios::in );
+            if ( !file.is_open() ) {
+                Log_Printf( "[CProjectManager::AddToCache] failed to load %s\n", va( "%s%cscripts%centitydata.json", proj->m_AssetDirectory.c_str(), PATH_SEP, PATH_SEP ) );
+                return;
+            }
+            try {
+                data = json::parse( file );
+            } catch ( const json::exception& e ) {
+                Log_Printf( "[CProjectManager::AddToCache] failed to load project config file '%s', nlohmann::json error ->\n    id: %i\n    what: %s\n",
+                    e.id, e.what() );
+                return;
+            }
+            file.close();
+
+            const std::vector<json>& itemlist = data["ItemData"];
+            const std::vector<json>& moblist = data["MobData"];
+            const std::vector<json>& weaponlist = data["WeaponData"];
+//            const std::vector<json>& botlist = data["BotData"];
 
             proj->m_EntityList[ ET_ITEM ].reserve( itemlist.size() );
             proj->m_EntityList[ ET_MOB ].reserve( moblist.size() );
-            proj->m_EntityList[ ET_BOT ].reserve( botlist.size() );
+            proj->m_EntityList[ ET_WEAPON ].reserve( weaponlist.size() );
+//            proj->m_EntityList[ ET_BOT ].reserve( botlist.size() );
 
             for ( const auto& it : itemlist ) {
-                proj->m_EntityList[ ET_ITEM ].emplace_back( it.at( "name" ).get<std::string>().c_str(), it.at( "id" ) );
+                proj->m_EntityList[ ET_ITEM ].emplace_back( it.at( "Name" ).get<std::string>().c_str(), it.at( "Id" ) );
             }
             for ( const auto& it : moblist ) {
-                proj->m_EntityList[ ET_MOB ].emplace_back( it.at( "name" ).get<std::string>().c_str(), it.at( "id" ) );
+                proj->m_EntityList[ ET_MOB ].emplace_back( it.at( "Name" ).get<std::string>().c_str(), it.at( "Id" ) );
             }
-            for ( const auto& it : botlist ) {
-                proj->m_EntityList[ ET_BOT ].emplace_back( it.at( "name" ).get<std::string>().c_str(), it.at( "id" ) );
+            for ( const auto& it : weaponlist ) {
+                proj->m_EntityList[ ET_WEAPON ].emplace_back( it.at( "Name" ).get<std::string>().c_str(), it.at( "Id" ) );
             }
-        }
-        if ( data.contains( "mobtypes" ) ) {
-            proj->m_MobTypes = data["mobtypes"];
+//            for ( const auto& it : botlist ) {
+//                proj->m_EntityList[ ET_BOT ].emplace_back( it.at( "name" ).get<std::string>().c_str(), it.at( "id" ) );
+//            }
         }
     } else {
         proj->m_Name = "untitled";
@@ -165,6 +181,12 @@ void CProjectManager::New( void )
     if ( !Q_mkdir( va( "%s%cAssets%cmaps", path, PATH_SEP, PATH_SEP ) ) ) {
         Error( "[CProjectManager::New] failed to create project directory '%s%cAssets%cmaps'", path, PATH_SEP, PATH_SEP );
     }
+    if ( !Q_mkdir( va( "%s%cAssets%cscripts", path, PATH_SEP, PATH_SEP ) ) ) {
+        Error( "[CProjectManager::New] failed to create project directory '%s%cAssets%cscripts'", path, PATH_SEP, PATH_SEP );
+    }
+    if ( !Q_mkdir( va( "%s%cAssets%clevels", path, PATH_SEP, PATH_SEP ) ) ) {
+        Error( "[CProjectManager::New] failed to create project directory '%s%cAssets%clevels'", path, PATH_SEP, PATH_SEP );
+    }
     AddToCache( path );
     m_CurrentProject = m_ProjList.find( path )->second;
 
@@ -174,10 +196,6 @@ void CProjectManager::New( void )
 void CProjectManager::Save( void ) const
 {
     const char *ospath;
-    std::vector<json> itemlist;
-    std::vector<json> moblist;
-    std::vector<json> botlist;
-    std::vector<json> mobtypes;
     uint32_t i;
 
     ospath = BuildOSPath( m_CurrentProject->m_FilePath.c_str(), "Config", "config.json" );
@@ -198,40 +216,10 @@ void CProjectManager::Save( void ) const
         data["maplist"].emplace_back( it->name );
     }
 
-    itemlist.reserve( m_CurrentProject->m_EntityList[ ET_ITEM ].size() );
-    for ( i = 0; i < m_CurrentProject->m_EntityList[ ET_ITEM ].size(); i++ ) {
-        json& it = itemlist.emplace_back();
-
-        it["id"] = m_CurrentProject->m_EntityList[ ET_ITEM ][i].m_Id;
-        it["name"] = m_CurrentProject->m_EntityList[ ET_ITEM ][i].m_Name;
-    }
-
-    moblist.reserve( m_CurrentProject->m_EntityList[ ET_MOB ].size() );
-    for ( i = 0; i < m_CurrentProject->m_EntityList[ ET_MOB ].size(); i++ ) {
-        json& it = moblist.emplace_back();
-
-        it["id"] = m_CurrentProject->m_EntityList[ ET_MOB ][i].m_Id;
-        it["name"] = m_CurrentProject->m_EntityList[ ET_MOB ][i].m_Name;
-    }
-
-    botlist.reserve( m_CurrentProject->m_EntityList[ ET_BOT ].size() );
-    for ( i = 0; i < m_CurrentProject->m_EntityList[ ET_BOT ].size(); i++ ) {
-        json& it = botlist.emplace_back();
-
-        it["id"] = m_CurrentProject->m_EntityList[ ET_BOT ][i].m_Id;
-        it["name"] = m_CurrentProject->m_EntityList[ ET_BOT ][i].m_Name;
-    }
-
-    data["data_lists"]["itemlist"] = itemlist;
-    data["data_lists"]["moblist"] = moblist;
-    data["data_lists"]["botlist"] = botlist;
-
-    for ( const auto& it : m_CurrentProject->m_MobTypes ) {
-        data["mobtypes"][it.first] = it.second;
-    }
-
     file.width( 4 );
     file << data;
+
+    ProjectSaveEntityIds();
 }
 
 void CProjectManager::SetCurrent( const std::string& name, bool buildPath )

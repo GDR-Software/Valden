@@ -117,8 +117,7 @@ static GLint GetUniform( const std::string& name )
     return location;
 }
 
-static inline bool IsTileCheckpoint( uint32_t y, uint32_t x )
-{
+static inline bool IsTileCheckpoint( uint32_t y, uint32_t x ) {
     for ( const auto& it : mapData->checkpoints ) {
         if ( it.xyz[0] == x && it.xyz[1] == y ) {
             return true;
@@ -127,8 +126,7 @@ static inline bool IsTileCheckpoint( uint32_t y, uint32_t x )
     return false;
 }
 
-static inline bool IsTileSpawn( uint32_t y, uint32_t x )
-{
+static inline bool IsTileSpawn( uint32_t y, uint32_t x ) {
     for ( const auto& it : mapData->spawns ) {
         if ( it.xyz[0] == x && it.xyz[1] == y ) {
             return true;
@@ -161,9 +159,11 @@ void CMapRenderer::DrawMap( void )
     if ( !mapData ) {
         return;
     }
-//    if ( !mapData->textures[Walnut::TB_DIFFUSEMAP] || !mapData->texcoords ) {
-//        return;
-//    }
+    /*
+    if ( !mapData->textures[Walnut::TB_DIFFUSEMAP] || !mapData->texcoords ) {
+        return;
+    }
+    */
 
     m_Projection = glm::ortho( -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f );
     const glm::mat4 transpose = glm::translate( glm::mat4( 1.0f ), m_CameraPos )
@@ -194,14 +194,9 @@ void CMapRenderer::DrawMap( void )
     glUniform1i( GetUniform( "u_UseSpecularMapping" ), mapData->textures[Walnut::TB_SPECULARMAP] ? 1 : 0 );
     glUniform1i( GetUniform( "u_UseNormalMapping" ), mapData->textures[Walnut::TB_NORMALMAP] ? 1 : 0 );
     glUniform1i( GetUniform( "u_UseAmbientOcclusionMapping" ), mapData->textures[Walnut::TB_SHADOWMAP] ? 1 : 0 );
+    glUniform3f( GetUniform( "u_CameraPos" ), m_CameraPos.x, m_CameraPos.y, m_CameraPos.z );
 
     glUniform1i( GetUniform( "u_NumLights" ), mapData->numLights );
-//    for ( i = 0; i < mapData->numLights; i++ ) {
-//        glUniform3f( GetUniform( va( "u_LightData.lights[%i].origin", i ) ),
-//            mapData->lights[i].origin[0], mapData->lights[i].origin[1], mapData->lights[i].origin[2] );
-//        glUniform1f( GetUniform( va( "u_LightData.lights[%i].range", i ) ), mapData->lights[i].range );
-//        glUniform4fv( GetUniform( va( "u_LightData.lights[%i].color", i ) ), 4, mapData->lights[i].color );
-//    }
     glBindBuffer( GL_UNIFORM_BUFFER, m_LightBuffer );
     for ( i = 0; i < mapData->numLights; i++ ) {
         memcpy( tempLight.color, mapData->lights[i].color, sizeof( vec4_t ) );
@@ -259,7 +254,7 @@ void CMapRenderer::DrawMap( void )
                 vtx[i].worldPos[0] = x;
                 vtx[i].worldPos[1] = y;
                 vtx[i].worldPos[2] = 0.0f;
-                vtx[i].color = glm::vec4( 0.0f );
+                vtx[i].color = glm::vec4( 1.0f );
 
                 if ( m_bTileSelectOn && m_nTileSelectX == x && m_nTileSelectY == y ) {
                     vtx[i].color = { 0.0f, 1.0f, 0.0f, 1.0f };

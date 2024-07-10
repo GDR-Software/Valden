@@ -3,6 +3,7 @@
 
 #pragma once
 
+#ifndef BFF_TOOL
 #include "Application.h"
 #include "Walnut/Layer.h"
 #include "gln.h"
@@ -25,6 +26,7 @@
 #include "shadermanager_dlg.h"
 #include "textedit_dlg.h"
 #include "mapinfo_dlg.h"
+#endif
 
 struct TextEditor
 {

@@ -3,7 +3,9 @@
 
 #pragma once
 
-#ifdef VALDEN
+#include "gln_files.h"
+
+#ifndef BFF_TOOL
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -45,7 +47,6 @@ FORCEINLINE void Swap( T& a, T& b ) {
 }
 #endif
 
-#include "gln_files.h"
 #define MAX_NPATH 64
 #ifdef _WIN32
     #define PATH_SEP '\\'

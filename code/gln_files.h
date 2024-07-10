@@ -1,3 +1,25 @@
+/*
+===========================================================================
+Copyright (C) 2023-2024 GDR Games
+
+This file is part of The Nomad source code.
+
+The Nomad source code is free software; you can redistribute it
+and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the License,
+or (at your option) any later version.
+
+The Nomad source code is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Foobar; if not, write to the Free Software
+Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+===========================================================================
+*/
+
 #ifndef __GLN_FILES__
 #define __GLN_FILES__
 
@@ -6,6 +28,9 @@
 /*
 * GLN_FILES: these definitions must stay the same in any "The Nomad" extension or project
 */
+
+#include <stdint.h>
+#include <stdlib.h>
 
 typedef float vec_t;
 typedef int32_t ivec_t;
@@ -43,12 +68,18 @@ typedef enum { qfalse = 0, qtrue = 1 } qboolean;
 #endif
 #endif
 
-#ifndef MAX_NPATH
-#define MAX_NPATH 64
+#ifndef MAX_OSPATH
+    #ifdef _WIN32
+        #define MAX_OSPATH _PATH_MAX
+    #elif defined(__unix__)
+        #include <unistd.h>
+        #include <limits.h>
+        #define MAX_OSPATH PATH_MAX
+    #endif
 #endif
 
-#ifndef MAX_GDR_PATH
-#define MAX_GDR_PATH 64
+#ifndef MAX_NPATH
+#define MAX_NPATH 64
 #endif
 
 // the minimum size in bytes a lump should be before compressing it
@@ -96,7 +127,7 @@ typedef struct {
     uint64_t ident;
     uint64_t version;
 
-    char name[MAX_GDR_PATH];
+    char name[MAX_NPATH];
     uint32_t minfilter;
     uint32_t magfilter;
     uint32_t wrapS;
@@ -114,6 +145,8 @@ typedef struct {
 #define TILE2D_MAGIC 0xfda218891
 #define TILE2D_VERSION 0
 
+typedef vec2_t spriteCoord_t[4];
+
 typedef struct {
     vec2_t uv[4];
     uint32_t index;
@@ -127,7 +160,7 @@ typedef struct {
     uint32_t tileCountY;
     uint32_t compression; // only for sprites
     uint64_t compressedSize; // only for sprites
-    char texture[MAX_GDR_PATH]; // store a texture inside of a tileset
+    char texture[MAX_NPATH]; // store a texture inside of a tileset
 } tile2d_info_t;
 
 typedef struct {
@@ -158,6 +191,7 @@ typedef struct {
 #define MAX_MAP_SPAWNS 1024
 #define MAX_MAP_CHECKPOINTS 256
 #define MAX_MAP_LIGHTS 256
+#define MAX_MAP_SECRETS 256
 
 #define MAX_MAP_WIDTH 1024
 #define MAX_MAP_HEIGHT 1024
@@ -169,15 +203,24 @@ typedef struct {
 #define LUMP_CHECKPOINTS 1
 #define LUMP_SPAWNS 2
 #define LUMP_LIGHTS 3
-#define LUMP_VERTICES 4
-#define LUMP_INDICES 5
-#define LUMP_SPRITES 6
-#define NUMLUMPS 7
+#define LUMP_SPRITES 4
+#define LUMP_SECRETS 5
+#define NUMLUMPS 6
 
 #define TILETYPE_CHECKPOINT       0x0001
 #define TILETYPE_SPAWN            0x0002
 #define TILETYPE_NORMAL           0x0004
 #define TILETYPE_BITS             0x000f
+
+#define	CONTENTS_NODROP			    0x10000000	// don't leave bodies or items (death fog, lava)
+#define CONTENTS_MOVER			    0x20000000
+#define	CONTENTS_PLAYERCLIP		    0x40000000
+#define	CONTENTS_MONSTERCLIP	    0x80000000
+#define	CONTENTS_SOLID			    0x01000000	// an eye is never valid in a solid
+#define	CONTENTS_LAVA			    0x02000000
+#define	CONTENTS_SLIME			    0x04000000
+#define	CONTENTS_WATER			    0x08000000
+#define	CONTENTS_TRANSLUCENT        0x00100000	// don't consume surface fragments inside
 
 #define SURFACEPARM_WOOD            0x10000000 // makes wood sounds and effects
 #define SURFACEPARM_METAL           0x20000000 // enables metallic effects in the game
@@ -189,6 +232,15 @@ typedef struct {
 #define SURFACEPARM_NODLIGHT        0x08000000 // dynamic lighting will not be applied to this tile
 #define SURFACEPARM_NOMARKS         0x00100000 // no gfx will be drawn on this tile
 #define SURFACEPARM_NOMISSILE       0x00200000 // missiles will not explode when hitting this tile, even if it is marked as solid
+#define	SURFACEPARM_SLICK		    0x00400000 // effects game physics
+#define SURFACEPARM_LIGHTFILTER     0x00800000 // allows for fancy light filters
+#define SURFACEPARM_ALPHASHADOW     0x00010000 // do per-pixel light shadow light casting
+#define SURFACEPARM_LADDER          0x00020000
+#define SURFACEPARM_NODRAW          0x00040000
+#define SURFACEPARM_POINTLIGHT      0x00080000 // generate lighting info at vertexes
+#define SURFACEPARM_NOLIGHTMAP      0x00001000 // surface doesn't need a lightmap
+#define SURFACEPARM_DUST            0x00002000 // generate dust particles when walking on this tile
+#define SURFACEPARM_NONSOLID        0x00004000 // don't apply collision physics here
 
 #define LIGHT_POINT       0
 #define LIGHT_DIRECTIONAL 1
@@ -196,6 +248,7 @@ typedef struct {
 typedef struct {
     vec4_t color;
     uvec3_t origin;
+    float angle;
     float brightness;
     float range;
     float linear;
@@ -203,6 +256,14 @@ typedef struct {
     float constant;
     int type;
 } maplight_t;
+
+//
+// mapsecret_t: unless the level exit is a secret, the checkpoint trigger
+// index should never the be the last checkpoint in the map
+//
+typedef struct {
+    uint32_t trigger; // checkpoint index
+} mapsecret_t;
 
 typedef struct {
     vec2_t texcoords[4];
@@ -220,7 +281,7 @@ typedef struct {
 } mapvert_t;
 
 typedef struct {
-    char name[MAX_GDR_PATH];
+    char name[MAX_NPATH];
     uint32_t minfilter;
     uint32_t magfilter;
     uint32_t wrapS;
@@ -235,7 +296,7 @@ typedef struct {
 } maptexture_t;
 
 typedef struct {
-    char name[MAX_GDR_PATH];
+    char name[MAX_NPATH];
     uint32_t numTiles;
     uint32_t tileWidth;
     uint32_t tileHeight;
@@ -243,6 +304,9 @@ typedef struct {
     uint64_t compressedSize;
 } maptileset_t;
 
+//
+// mapcheckpoint_t: the last checkpoint in the list is always the level's exit
+//
 typedef struct {
     uvec3_t xyz;
 } mapcheckpoint_t;
